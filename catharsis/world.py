@@ -88,6 +88,8 @@ class World:
         self.agents: dict[str, Agent] = {}
         self.groups: dict[str, Group] = {}
         self.negotiations: list[Negotiation] = []
+        #: resource -> how much handing it over exposes the giver.
+        self.risk: dict[str, float] = {}
         self.tick_count = 0
         self.log: list[Event] = []
         self.sink = sink if sink is not None else (lambda line: None)
@@ -404,6 +406,11 @@ class World:
         agent.goals[dimension] = float(value)
         agent.stances[dimension] = float(value)
         self.record("goal", f"{agent.name} wants {dimension} = {value:g}")
+
+    def _effect_risk(self, node: Utter, a, b) -> None:
+        resource = str(node.slot(0))
+        self.risk[resource] = clamp(float(node.slot(1)))
+        self.record("risk", f"{resource} is risky to give away ({self.risk[resource]:.2f})")
 
     def _effect_have(self, node: Utter, a: Agent, b) -> None:
         a.resources[str(node.slot(1))] = float(node.slot(2))
@@ -1050,7 +1057,27 @@ class World:
             if key == "deficit":
                 return self._deficit(agent)
             if key == "their_need":
-                return self._deficit(target)
+                # How much somebody's need moves you depends on what they are
+                # asking for.  Nobody hands over the keys because the asker
+                # looks like they could use them.
+                return self._deficit(target) * (1.0 - self._exposure(agent, target))
+            if key == "own_need":
+                # Short of *this* thing, specifically.  A person with nothing in
+                # the cupboard is not thereby unwilling to lend a book.
+                resource = self._giveable_resource(agent, target)
+                if resource is None:
+                    return 0.0
+                needed = agent.needs.get(resource, 0.0)
+                if needed <= 0:
+                    return 0.0
+                return clamp(max(0.0, needed - agent.resources.get(resource, 0.0)) / needed)
+            if key == "exposure":
+                # What you would be handing over, weighed against how far you
+                # actually trust the person asking.  For a harmless resource
+                # this is zero and the term disappears.
+                bond = agent.bonds.get(target.name)
+                trust = 0.0 if bond is None else bond.get("trust")
+                return self._exposure(agent, target) * (1.0 - trust)
             if key == "group_trust":
                 return self._group_feeling(agent, "trust")
             if key == "group_doubt":
@@ -1113,14 +1140,26 @@ class World:
             )
         return True  # pragma: no cover - unknown requirement is a table bug
 
+    #: A resource this risky is a capability rather than a good: it exists only
+    #: because its holder confers it, so it cannot be carried off.  Commit access
+    #: cannot be stolen from someone the way bread can.
+    TAKEABLE_RISK = 0.5
+
     def _contested_resource(self, agent: Agent, target: Agent) -> str | None:
         best = None
         margin = 0.0
         for resource, amount in sorted(target.resources.items()):
+            if self.risk.get(resource, 0.0) > self.TAKEABLE_RISK:
+                continue
             if amount - agent.resources.get(resource, 0.0) > margin:
                 margin = amount - agent.resources.get(resource, 0.0)
                 best = resource
         return best if margin >= 1.0 else None
+
+    def _exposure(self, agent: Agent, target: Agent) -> float:
+        """How dangerous the thing this agent would hand over actually is."""
+        resource = self._giveable_resource(agent, target)
+        return 0.0 if resource is None else self.risk.get(resource, 0.0)
 
     def _giveable_resource(self, agent: Agent, target: Agent) -> str | None:
         for resource, needed in sorted(target.needs.items()):

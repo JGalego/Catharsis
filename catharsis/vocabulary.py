@@ -285,6 +285,13 @@ def _base_table() -> dict[str, Utterance]:
         effect="need",
     )
 
+    table["risk"] = Utterance(
+        name="risk",
+        params=("word", "number"),
+        doc="how exposed handing this resource over leaves the giver; risky things are given on trust, not on need",
+        effect="risk",
+    )
+
     table["trait"] = Utterance(
         name="trait",
         params=("agent", "word", "number"),

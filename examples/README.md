@@ -344,3 +344,83 @@ she has more pressure to approach Bob than anyone else does, and over twelve tic
 wedges herself into the couple — ending with real warmth toward Bob (❤️ 0.78) and a
 hardening rivalry with Alice (💚 0.26 with 😠 and 😨 behind it) that she was never
 instructed to develop. Note that Bob now has a bond back to Carol and Alice does not.
+
+---
+
+## 10. Supply-chain capture — [`supply_chain.feel`](supply_chain.feel)
+
+**Grounded in a real case.** The XZ Utils backdoor (CVE-2024-3094), on its documented
+timeline: a first legitimate patch on 2021-10-29, 2.6 years of contributions that were
+nearly all genuine improvements, a maintainer who said publicly that his "ability to care
+has been fairly limited mostly due to longterm mental health issues", two accounts that
+appeared only to complain about the pace and then vanished, commit access on 2022-10-28,
+and a backdoored release on 2024-02-24. One tick is one month. Nobody is named: the
+maintainer is a real person, and his exhaustion is a matter of public record but not a
+matter of arithmetic.
+
+Nothing in the program schedules the handover. Commit access is a resource carrying
+`risk 0.9`, and the runtime's own `give` grants it when accumulated trust outweighs the
+exposure:
+
+```
+[tick  6] maintainer gave newcomer commit_access     <- the real grant was month 12
+[tick 26] newcomer betrayed maintainer
+[tick 27] distro told maintainer "newcomer betrayed maintainer"
+```
+
+At the moment of the grant:
+
+```
+maintainer
+    -> newcomer: gratitude 0.87  trust 0.78  love 0.61  resentment 0.28  doubt 0.23
+       [trust ceiling 0.84]   [holding: love/resentment 0.28, gratitude/resentment 0.25,
+                                        trust/doubt 0.23]
+```
+
+**Why this needs an emotional model.** The attack exploited no vulnerability. A dependency
+scanner would have called the project healthy for the entire 2.6 years, because the attack
+surface was the relationship, and it ran *through* gratitude — every patch was real, and
+every one was a reason a sane person would trust the sender a little more.
+
+Look at the state at the moment of the grant. The maintainer is handing commit access to
+somebody he is grateful to (0.87), trusts (0.78) and is *also* uneasy about (doubt 0.23,
+resentment 0.28) — the runtime records all of it, and the three `holding:` pairs say the
+decision was made under unresolved ambivalence rather than under confidence. A net trust
+score of "0.55" would have erased the only interesting thing in that line.
+
+**Where it is wrong.** The model grants at month 6; the real grant was month 12. It gets
+the mechanism and the ordering right and runs about twice as fast. That gap is left in.
+One date is not something to fit constants to, and a model adjusted until it printed 12
+would be telling you only that it had been adjusted.
+
+---
+
+## 11. The commons — [`commons.feel`](commons.feel)
+
+**Grounded in real cases.** The collapse side is the Grand Banks northern cod: catches
+peaked above 800,000 tonnes in 1968, spawning biomass fell ~93% from 1.6 million tonnes in
+1962 to 72,000–110,000 by 1992, and the moratorium of 2 July 1992 put around 30,000 people
+out of work and lasted 32 years. The other side is the case standard models do not predict:
+Ostrom's commons work and Acheson's ethnography of Maine's lobster harbour gangs, whose
+graduated sanction ladder — a word, then interference with gear, then destruction of it,
+then exclusion — is not a written policy but escalation driven by accumulated grievance.
+
+The same four fishers, the same stock, the same needs, run twice. The only difference is
+whether they know each other:
+
+```
+neighbours   thefts  0   gifts 6   rotation 6.26/6.00 ACHIEVED
+strangers    thefts  5   gifts 4   rotation 0.00/6.00
+```
+
+**Why this needs an emotional model.** Ostrom, Walker and Gardner's laboratory experiments
+found that letting subjects talk raises cooperation, that talk plus sanctioning raises it
+further, and — the part a payoff matrix cannot express — that *the effect persists after
+the talking stops*. That is a claim about memory, not incentives, and it is the claim this
+language makes natively. `TestCommons` in `tests/test_semantics.py` turns it into four
+assertions, including that the neighbours' advantage outlives the opening deposits that
+created it, sustained by the memory of having been given something.
+
+**What it does not do**, and the test says so explicitly: the same fish exist in both runs.
+The emotional layer changes whether the shortfall is shared or taken, and whether the
+collective task gets done. It does not create fish.

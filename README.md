@@ -194,7 +194,7 @@ and it is a fact about the runtime, not a string.
 ### Running the tests
 
 ```bash
-python -m unittest discover -s tests -v     # 114 tests, no dependencies
+python -m unittest discover -s tests -v     # 124 tests, no dependencies
 ruff check catharsis tests                  # optional: lint
 ruff format --check catharsis tests         # optional: formatting
 ```
@@ -206,6 +206,8 @@ Every example is a runnable program with its reasoning in the file itself, and
 
 | Example | What it shows |
 | --- | --- |
+| [supply_chain.feel](examples/supply_chain.feel) | **Grounded in a real case.** The XZ Utils backdoor, on its documented timeline. A depleted maintainer, a contributor whose 2.6 years of patches were genuinely good, and two sock puppets applying pressure. Nothing scripts the handover — commit access is a resource, and the runtime grants it when accumulated trust outweighs the exposure. The model runs about twice as fast as the real thing, and that gap is reported rather than tuned out. |
+| [commons.feel](examples/commons.feel) | **Grounded in real cases.** The same four fishers, the same stock, run twice — once as neighbours and once as strangers. Neighbours: 0 thefts, the rotation holds. Strangers: 5 thefts, the shared task never gets off zero. Reproduces the direction of Ostrom's finding, including that the advantage outlives the head start. |
 | [negotiation.feel](examples/negotiation.feel) | Two agents bargain to a settled price with no negotiation algorithm anywhere. How far each side moves *is* how it feels: `trust + hope + guilt + love + fear` against `pride + anger + resentment + doubt`. Alice's pride wins her the price; Bob's fear loses it — and he ends up holding gratitude and resentment at the same time. |
 | [reputation.feel](examples/reputation.feel) | Alice betrays Bob, Charlie sees it, and Diana — who never met Alice and saw nothing — ends up doubting her, via a memory tagged `told \| from charlie` with its own confidence. The damage is strictly graded: victim > witness > hearsay. |
 | [forgiveness.feel](examples/forgiveness.feel) | Can Bob forgive Alice without forgetting what she did? Trust recovers to the ceiling the memory imposes and stops there, grief stays, and the memory keeps ruminating with its hostile half disarmed. |
@@ -247,7 +249,17 @@ about one entity, kept because it reads better on its own.
 (`fear diana charlie`), nobody but themselves (`pride charlie`), or a claim
 (`doubt alice "the door was open"`), plus the events — `betray`, `apology`, `forgive`,
 `witness`, `gift`, `propose`, `reject`, `agree`, `remember`, `recall`, `denial`,
-`acceptance`, `choice`, `regret`, `goal`, `have`, `need`, `trait`, `group`, `join`.
+`acceptance`, `choice`, `regret`, `goal`, `have`, `need`, `risk`, `trait`, `group`, `join`.
+
+## What this is not
+
+Catharsis is an esoteric language, and two of the examples are built on documented
+real-world cases. The line between them matters: the **sequences** in those examples are
+sourced and cited, but the **emotional coefficients are a reading, not a measurement** —
+there is no dataset of anyone's trust levels, and there could not be. Where the model
+diverges from the record, the example says so instead of adjusting constants until it
+agrees. It is a way of arguing about the shape of a process; it does not predict what
+particular people will do, and nobody real is named in it.
 
 ## Status
 

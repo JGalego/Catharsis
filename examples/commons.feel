@@ -1,0 +1,85 @@
+# The commons — why some fisheries collapse and some do not
+#
+# ==============================================================================
+# WHAT IS REAL HERE, AND WHAT IS NOT
+#
+# The structure is documented; the emotional coefficients are a reading of it.
+#
+# The collapse case is the Grand Banks northern cod. Catches peaked above
+# 800,000 tonnes in 1968; spawning biomass fell about 93% in thirty years, from
+# 1.6 million tonnes in 1962 to between 72,000 and 110,000 in 1992; the
+# moratorium was announced on 2 July 1992, put around 30,000 people out of work
+# in Newfoundland and Labrador, and lasted 32 years rather than the expected two.
+#
+# The other case is the one standard models do not predict. Elinor Ostrom's work,
+# and James Acheson's ethnography of Maine's lobster harbour gangs, document
+# common-pool resources that are *not* destroyed by the people using them. In
+# Alanya, Turkey, fishers who had been fighting over the best spots in the early
+# 1970s built a rotation: a list of who may fish, named locations, lots drawn each
+# September, and everyone shifting one spot east per day. In Maine, harbour gangs
+# hold informal territories with a graduated sanction ladder -- a word first, then
+# interference with gear, then destruction of it, then exclusion.
+#
+# That ladder is the part worth stealing. It is not a policy anybody wrote down;
+# it is escalation driven by accumulated grievance, which is the one thing this
+# runtime computes natively.
+#
+# ==============================================================================
+# WHY THIS NEEDS AN EMOTIONAL MODEL
+#
+# Ostrom, Walker and Gardner's laboratory experiments on common-pool resources
+# found something a payoff matrix cannot explain: letting subjects talk raises
+# cooperation, talk plus the ability to sanction raises it further, and -- the
+# part that matters here -- *the effect persists after the talking stops*.
+#
+# That last finding is not a claim about incentives. It is a claim about memory,
+# and it is the claim this language makes natively. `tests/test_semantics.py`
+# turns it into an assertion: TestCommons checks that a group which has built
+# relationships holds up better than an identical group of strangers, and that it
+# still does after the relationships stop being maintained.
+#
+# Below are the same four fishers, the same boats and the same stock, run twice.
+# The only difference between the two halves is whether they know each other.
+
+group harbour
+
+agent north south east west
+join north harbour
+join south harbour
+join east harbour
+join west harbour
+
+# The stock everyone draws on, and what each of them needs to get by. Fish is an
+# ordinary good, so it can be competed for -- which is exactly the point.
+have north fish 3
+have south fish 3
+have east fish 1
+have west fish 1
+
+need north fish 2
+need south fish 2
+need east fish 3
+need west fish 3
+
+# The rotation is a shared undertaking that nobody is obliged to uphold.
+goal harbour "keep the rotation"
+
+# --- what the harbour has that a fleet of strangers does not -------------------
+#
+# Neighbours, an ethnographic fact rather than a policy: these people have known
+# each other for years.
+
+trust north south 0.7
+trust south north 0.7
+trust east west 0.65
+trust west east 0.65
+trust north east 0.5
+trust east north 0.5
+love south west 0.4
+love west south 0.4
+
+tick 25
+
+observe harbour
+observe east
+observe north

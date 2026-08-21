@@ -315,3 +315,147 @@ class TestEmergence(unittest.TestCase):
 
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()
+
+
+class TestRiskyResources(unittest.TestCase):
+    """A capability is not a good: it is given on trust, and cannot be taken.
+
+    These assert the mechanism rather than any date.  `examples/supply_chain.feel`
+    reproduces the shape of a documented attack but runs about twice as fast as
+    the real thing, and pinning a tick number here would be fitting constants to
+    a single case.
+    """
+
+    SETUP = (
+        "agent holder seeker\n"
+        "have holder key 2\nneed holder key 1\nneed seeker key 1\n"
+        "trust seeker holder 0.6\n"
+    )
+
+    @staticmethod
+    def handover(world) -> int | None:
+        for event in world.log:
+            if "gave seeker key" in event.text:
+                return event.tick
+        return None
+
+    def test_a_harmless_resource_is_handed_over_on_need_alone(self):
+        world = run_source(self.SETUP + "tick 12\n")
+        self.assertIsNotNone(self.handover(world))
+
+    def test_a_risky_one_is_not(self):
+        world = run_source(self.SETUP + "risk key 0.9\ntick 12\n")
+        self.assertIsNone(self.handover(world), "a stranger should not be handed the keys")
+
+    def test_but_generosity_over_time_opens_it(self):
+        # Same risky resource, same threshold; the only difference is a history.
+        patient = self.SETUP + "risk key 0.9\n" + ("gift seeker holder favour\ntick 1\n" * 10)
+        world = run_source(patient)
+        self.assertIsNotNone(self.handover(world))
+        self.assertGreater(world.agents["holder"].feels("trust", "seeker"), 0.6)
+
+    def test_the_riskier_it_is_the_longer_it_takes(self):
+        def at(risk: float) -> int | None:
+            source = self.SETUP + f"risk key {risk}\n" + ("gift seeker holder favour\ntick 1\n" * 14)
+            return self.handover(run_source(source))
+
+        cheap, dear = at(0.2), at(0.9)
+        self.assertIsNotNone(cheap)
+        self.assertIsNotNone(dear)
+        self.assertLess(cheap, dear)
+
+    def test_a_capability_cannot_simply_be_taken(self):
+        # Bread can be taken by whoever wants it more.  A capability cannot: it
+        # only exists because its holder confers it.  The holder here resents the
+        # seeker, so giving is off the table and taking is the only route left.
+        grabby = "\nresentment holder seeker 0.9\nangry seeker holder 0.9\npride seeker 0.9\ntick 15\n"
+        takeable = run_source(self.SETUP + grabby)
+        guarded = run_source(self.SETUP + "risk key 0.9" + grabby)
+        self.assertTrue(any("took key" in e.text for e in takeable.log), "bread should be takeable")
+        self.assertFalse(any("took key" in e.text for e in guarded.log))
+        self.assertIsNone(self.handover(guarded), "and it was not given either")
+
+    def test_being_short_of_one_thing_does_not_stop_you_giving_another(self):
+        world = run_source(
+            "agent holder seeker\n"
+            "have holder bread 4\nneed holder bread 1\nneed seeker bread 2\n"
+            "need holder sleep 8\nhave holder sleep 0\n"  # exhausted, but not of bread
+            "trust holder seeker 0.5\ntick 10\n"
+        )
+        self.assertGreater(world.agents["seeker"].resources.get("bread", 0.0), 0.0)
+
+
+class TestCommons(unittest.TestCase):
+    """Ostrom's finding, as an assertion.
+
+    Laboratory work on common-pool resources found that groups able to build
+    relationships sustain the resource where atomised ones do not, and that the
+    advantage *persists after the relationship-building stops*.  That second half
+    is a claim about memory rather than incentives, which is why it is testable
+    here at all: nothing in `examples/commons.feel` scores anybody's cooperation.
+    """
+
+    STOCK = (
+        "group harbour\n"
+        "agent north south east west\n"
+        "join north harbour\njoin south harbour\njoin east harbour\njoin west harbour\n"
+        "have north fish 3\nhave south fish 3\nhave east fish 1\nhave west fish 1\n"
+        "need north fish 2\nneed south fish 2\nneed east fish 3\nneed west fish 3\n"
+        'goal harbour "keep the rotation"\n'
+    )
+    NEIGHBOURS = (
+        "trust north south 0.7\ntrust south north 0.7\n"
+        "trust east west 0.65\ntrust west east 0.65\n"
+        "trust north east 0.5\ntrust east north 0.5\n"
+        "love south west 0.4\nlove west south 0.4\n"
+    )
+
+    @staticmethod
+    def thefts(world) -> int:
+        return sum(1 for event in world.log if "took fish" in event.text)
+
+    @staticmethod
+    def mean_trust(world) -> float:
+        values = [bond.get("trust") for agent in world.agents.values() for bond in agent.others()]
+        return sum(values) / len(values) if values else 0.0
+
+    def test_neighbours_take_from_each_other_less_than_strangers_do(self):
+        neighbours = run_source(self.STOCK + self.NEIGHBOURS + "tick 25\n")
+        strangers = run_source(self.STOCK + "tick 25\n")
+        self.assertLess(self.thefts(neighbours), self.thefts(strangers))
+        self.assertEqual(self.thefts(neighbours), 0)
+
+    def test_only_the_group_with_relationships_keeps_the_rotation(self):
+        neighbours = run_source(self.STOCK + self.NEIGHBOURS + "tick 25\n")
+        strangers = run_source(self.STOCK + "tick 25\n")
+        self.assertIsNotNone(neighbours.groups["harbour"].achieved_at)
+        self.assertIsNone(strangers.groups["harbour"].achieved_at)
+        self.assertEqual(strangers.groups["harbour"].progress, 0.0)
+
+    def test_the_emotional_layer_redistributes_rather_than_creating(self):
+        # Worth being honest about what it does not do: the same fish exist in
+        # both runs.  What changes is whether the shortfall is shared or taken.
+        neighbours = run_source(self.STOCK + self.NEIGHBOURS + "tick 25\n")
+        strangers = run_source(self.STOCK + "tick 25\n")
+
+        def shortfall(world):
+            return sum(
+                max(0.0, agent.needs.get("fish", 0) - agent.resources.get("fish", 0))
+                for agent in world.agents.values()
+            )
+
+        self.assertAlmostEqual(shortfall(neighbours), shortfall(strangers), places=6)
+
+    def test_the_advantage_outlives_the_head_start_that_created_it(self):
+        # The opening deposits decay; what sustains the difference afterwards is
+        # the memory of having been given something.
+        long_run = run_source(self.STOCK + self.NEIGHBOURS + "tick 60\n")
+        strangers = run_source(self.STOCK + "tick 60\n")
+        self.assertGreater(self.mean_trust(long_run), self.mean_trust(strangers))
+        remembered = [
+            memory
+            for agent in long_run.agents.values()
+            for memory in agent.memories
+            if "gave" in memory.claim
+        ]
+        self.assertTrue(remembered, "the sharing should have left memories behind")
