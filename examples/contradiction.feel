@@ -1,0 +1,40 @@
+# Contradiction
+#
+# Catharsis never collapses opposing feelings into a net position.  There is no
+# "love minus anger".  Both charges sit on the same edge, and their overlap is a
+# quantity in its own right: `tension`.
+#
+# Tension is not an error state, and it is not inert either.  Action pressure is
+# divided by `1 + tension`, so an agent holding a genuine contradiction is
+# *slower* than one that is merely indifferent -- ambivalence looks like
+# paralysis from the outside, and that falls straight out of the arithmetic
+# rather than out of a rule about ambivalence.
+#
+# Alice below is not confused.  She is in a well-defined state that a language
+# with booleans cannot represent.
+
+alice = agent
+bob = agent
+
+love alice bob 0.8
+anger alice bob 0.6
+
+trust alice bob 0.4
+doubt alice bob 0.7
+
+hope alice bob 0.9
+fear alice bob 0.3
+
+observe alice
+
+# Let it run. The contradictions do not resolve themselves -- the coupling
+# matrix moves them around, but nothing in the runtime is trying to tidy them
+# away, and Alice stays slow while she holds them.
+tick 10
+observe alice
+
+# `acceptance` is the only thing that collapses a contradiction, and it is not
+# free: whichever side loses is paid out as grief.
+acceptance alice
+tick 3
+observe alice

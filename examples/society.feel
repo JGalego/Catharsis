@@ -1,0 +1,51 @@
+# Emergent society
+#
+# Nothing below tells anybody what to do.  There is no schedule, no policy, no
+# social algorithm: only four people, what they have, what they need, and how
+# they start out feeling about each other.
+#
+# Every tick each agent scores every action it could take against the charge on
+# the relevant edge of the field and takes the strongest one.  Rivalries,
+# alliances, isolation and reconciliation are all downstream of that scoring --
+# see `catharsis/actions.py` for the whole repertoire, which is a table, not a
+# decision tree.
+#
+# Run it with --trace to watch the society happen:
+#
+#     catharsis run examples/society.catharsis --trace
+
+alice = agent
+bob = agent
+charlie = agent
+diana = agent
+
+# Scarcity. Charlie and Diana are short of what Alice and Bob are sitting on,
+# which is enough to produce envy without anybody being told to be envious.
+have alice bread 4
+have bob bread 3
+have charlie bread 0
+have diana bread 1
+
+need alice bread 1
+need bob bread 1
+need charlie bread 2
+need diana bread 2
+
+# Temperament: a baseline the self-loop is pulled back toward, forever.
+trait alice pride 0.55
+trait bob trust 0.45
+trait charlie loneliness 0.60
+trait diana curiosity 0.65
+
+# The starting configuration. One couple, one outsider, one observer.
+love alice bob 0.7
+love bob alice 0.6
+trust bob alice 0.7
+jealousy charlie bob 0.6
+lonely charlie 0.7
+curious diana
+fear diana charlie 0.4
+
+tick 30
+
+observe

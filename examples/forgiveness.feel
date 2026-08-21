@@ -1,0 +1,53 @@
+# Forgiveness
+#
+# The question this program asks is whether Bob can forgive Alice without
+# forgetting what she did.
+#
+# In an ordinary language you would model this with a flag, and forgiving would
+# mean setting it back.  In Catharsis you cannot, because the memory is not a
+# record of the betrayal -- it is a live participant in it.  Every tick, Bob's
+# memory pushes its own charge back into his bond with Alice, and while it is
+# salient it holds a *ceiling* on how much he is able to trust her again.
+#
+# `forgive` disarms the memory: it stops the memory pushing anger and resentment.
+# It does not delete it, it does not lift the ceiling, and it does not touch the
+# grief -- forgiveness costs a little more grief, in fact, because letting go of
+# the grievance means admitting the loss.
+#
+# Run it and compare the numbers at the end:
+#
+#     trust      recovers, but never past the ceiling the memory imposes
+#     grief      stays
+#     the memory stays, flagged forgiven, still pushing grief and sadness
+
+alice = agent
+bob = agent
+
+love alice bob 0.8
+love bob alice 0.8
+trust bob alice 0.9
+
+betray alice bob
+
+grief bob
+anger bob alice
+doubt bob alice
+
+tick 6
+
+# Alice tries. Whether an apology lands at all depends on what Bob is holding:
+# resentment and doubt absorb it, love and hope let it through.
+apology alice bob
+hope bob alice
+
+tick 4
+
+forgive bob alice
+trust bob alice
+
+tick 12
+
+observe bob
+
+# The memory is still there, and still has weight.
+recall bob "alice betrayed bob"

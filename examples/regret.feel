@@ -1,0 +1,52 @@
+# Regret and alternate histories
+#
+# `regret` does not rewind.  It forks.
+#
+# When Alice regrets a choice, the runtime keeps the road not taken as a live
+# branch beside the timeline she is actually in.  The branch is not simulated --
+# it is *valued*.  Its worth is pinned to how well Alice was doing at the moment
+# of the fork, and then it drifts upward every tick, because an unlived option
+# has nothing to disappoint you with.  That drift is the grass-is-greener term,
+# and it is the entire mechanism.
+#
+# Her live regret is the gap:
+#
+#     regret = valuation(alternate) - wellbeing(actual)
+#
+# So regret grows when the life she is in goes badly, shrinks when it goes well,
+# and never goes away on its own -- it has to be closed with `acceptance`, which
+# costs grief.  Both histories stay computationally accessible the whole time.
+
+alice = agent
+bob = agent
+
+love alice bob 0.7
+have alice home 1
+
+choice alice "leave" "stay"
+regret alice
+
+tick 8
+
+# The actual history gets worse. Notice what that does to the road not taken:
+# nothing at all, which is exactly why regret climbs.
+lonely alice 0.6
+sadness alice 0.5
+
+tick 8
+remember alice
+
+# A second choice, and a second fork. Regret is not one slot.
+choice alice "come back" "keep going"
+regret alice
+tick 6
+
+remember alice
+
+# Acceptance closes the branches. It does not make them false -- it makes them
+# finished, and charges grief for the difference.
+acceptance alice
+tick 4
+
+remember alice
+observe alice

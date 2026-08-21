@@ -1,0 +1,36 @@
+# Multi-agent coordination that does not happen
+#
+# The same three people, the same shared goal, the same runtime.  The only
+# difference from `coordination.catharsis` is the state of the trust graph.
+#
+# In the working version Alice has enough hope to move first, and the gratitude
+# her contributions produce raises everyone else's trust until they join in.
+# Here nobody can move first, so the gratitude that would have unlocked the
+# others is never generated, and the group sits at nearly zero forever.
+#
+# That is the whole point: coordination is not a feature of the runtime, it is a
+# fixed point of the relationships.  You can lose it by editing the feelings.
+
+group rescue_team
+
+alice = agent
+bob = agent
+charlie = agent
+
+join alice rescue_team
+join bob rescue_team
+join charlie rescue_team
+
+goal rescue_team "rescue"
+
+doubt alice bob 0.6
+doubt bob charlie 0.6
+doubt charlie alice 0.6
+
+fear alice 0.5
+fear bob 0.5
+pride charlie 0.7
+
+tick 20
+
+observe rescue_team
