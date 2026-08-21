@@ -16,6 +16,49 @@ NAME_START = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_")
 NAME_BODY = NAME_START | set("0123456789-.")
 DIGITS = set("0123456789")
 
+#: Characters that continue an emoji rather than starting a new one: variation
+#: selectors, the combining keycap, and skin tone modifiers.
+EMOJI_MODIFIERS = {"️", "︎", "⃣"}
+ZWJ = "‍"
+
+
+def _is_name_start(char: str) -> bool:
+    """Letters (in any script) and underscore begin a word."""
+    return char in NAME_START or char.isalpha()
+
+
+def _is_name_body(char: str) -> bool:
+    return char in NAME_BODY or char.isalpha() or char.isdigit()
+
+
+def _is_glyph_start(char: str) -> bool:
+    """Anything printable that is neither a letter, a digit nor punctuation.
+
+    Emoji are not a separate token kind -- they lex to a ``NAME`` and resolve
+    through the same alias table as ``lonely`` or ``apology``.  Keeping them out
+    of the grammar is what lets them be a pure data addition.
+    """
+    return not char.isspace() and not char.isalpha() and not char.isdigit() and not char.isascii()
+
+
+def _glyph_at(raw: str, index: int) -> tuple[str, int]:
+    """Consume one whole emoji, including ZWJ sequences and modifiers.
+
+    ``❤️`` is two code points and ``👨‍👩‍👧`` is five; both are one word here.
+    """
+    start = index
+    index += 1
+    length = len(raw)
+    while index < length:
+        char = raw[index]
+        if char in EMOJI_MODIFIERS or "\U0001f3fb" <= char <= "\U0001f3ff":
+            index += 1
+        elif char == ZWJ and index + 1 < length:
+            index += 2
+        else:
+            break
+    return raw[start:index], index
+
 
 @dataclass(frozen=True)
 class Token:
@@ -91,11 +134,15 @@ def tokenize(source: str, filename: str = "<source>") -> list[Token]:
                     ) from None
                 tokens.append(Token("NUMBER", value, lineno, column, raw))
                 continue
-            if char in NAME_START:
+            if _is_name_start(char):
                 start = index
-                while index < length and raw[index] in NAME_BODY:
+                while index < length and _is_name_body(raw[index]):
                     index += 1
                 tokens.append(Token("NAME", raw[start:index], lineno, column, raw))
+                continue
+            if _is_glyph_start(char):
+                glyph, index = _glyph_at(raw, index)
+                tokens.append(Token("NAME", glyph, lineno, column, raw))
                 continue
             raise LexError(
                 f"unexpected character {char!r}",
@@ -103,7 +150,7 @@ def tokenize(source: str, filename: str = "<source>") -> list[Token]:
                 column=column,
                 text=raw,
                 filename=filename,
-                hint='Catharsis lines are words, numbers and "quoted claims"',
+                hint='Catharsis lines are words, emoji, numbers and "quoted claims"',
             )
         tokens.append(Token("NEWLINE", None, lineno, len(raw) + 1, raw))
     tokens.append(Token("EOF", None, len(lines) + 1, 1, ""))

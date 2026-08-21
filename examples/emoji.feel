@@ -1,0 +1,38 @@
+# The emoji shorthand
+#
+# Every emotion and the commonest events have a glyph, and a glyph is a *second
+# spelling*, not a second language: it goes through the same alias table as
+# `lonely` -> `loneliness`, so there is not one line of runtime that knows the
+# difference.  `tests/test_emoji.py` asserts exactly that -- this program and its
+# word-for-word transcription produce byte-identical worlds.
+#
+# What the glyphs buy is density.  A love triangle is three people and six
+# feelings, and written this way the whole setup fits in the space the word
+# `jealousy` takes on its own.  Run it with --emoji and the state comes back in
+# the same alphabet it was written in:
+#
+#     catharsis run examples/emoji.feel --emoji
+#
+# 👤 agent   ❤️ love     🤝 trust    🕊️ hope      😄 joy       🦁 pride
+# 🔍 curious 🙏 grateful 😠 anger    😨 fear      🤔 doubt     😢 sadness
+# 🖤 grief   🙈 shame    😞 guilt    😒 envy      💚 jealousy  🧍 lonely
+# 😲 surprise 🛤️ regret  🧊 resentment
+# 💔 betray  🙇 apology  🤲 forgive  👁️ witness  🎁 gift      🧠 remember
+# 💭 recall  🙅 deny     🧘 accept   🔀 choice    ⏱️ tick
+
+alice = 👤
+bob   = 👤
+carol = 👤
+
+❤️ alice bob 0.9
+❤️ bob alice 0.7
+🤝 bob alice 0.8
+
+❤️ carol bob 0.8
+💚 carol alice 0.7
+🧍 carol 0.6
+
+⏱️ 12
+
+# Carol is not told to do anything about any of this.
+observe

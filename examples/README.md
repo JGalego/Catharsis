@@ -1,18 +1,19 @@
 # Examples
 
 Every program here is runnable, and every block of output below was produced by running it.
-Each `.catharsis` file carries its own reasoning in a header comment; this page collects the
+Each `.feel` file carries its own reasoning in a header comment; this page collects the
 results.
 
 ```bash
-catharsis run examples/<name>.catharsis            # final state
-catharsis run examples/<name>.catharsis --trace    # narrate every event as it happens
-catharsis run examples/<name>.catharsis --json     # machine-readable state
+catharsis run examples/<name>.feel            # final state
+catharsis run examples/<name>.feel --trace    # narrate every event as it happens
+catharsis run examples/<name>.feel --json     # machine-readable state
+catharsis run examples/<name>.feel --emoji    # one glyph per emotion
 ```
 
 ---
 
-## 1. Negotiation — [`negotiation.catharsis`](negotiation.catharsis)
+## 1. Negotiation — [`negotiation.feel`](negotiation.feel)
 
 Alice wants 90, Bob wants 50, and there is no negotiation algorithm in the runtime. Each
 side moves by whatever it can currently bear to give up, which is read straight off the
@@ -53,7 +54,7 @@ satisfaction score.
 
 ---
 
-## 2. Reputation — [`reputation.catharsis`](reputation.catharsis)
+## 2. Reputation — [`reputation.feel`](reputation.feel)
 
 Alice betrays Bob. Charlie sees it. Diana never met Alice and saw nothing, but she trusts
 Charlie. Nothing in the runtime keeps a score for Alice.
@@ -84,7 +85,7 @@ Run it with `--trace` to watch Charlie tell Diana at tick 1.
 
 ---
 
-## 3. Forgiveness — [`forgiveness.catharsis`](forgiveness.catharsis)
+## 3. Forgiveness — [`forgiveness.feel`](forgiveness.feel)
 
 Can Bob forgive Alice without forgetting what she did?
 
@@ -112,7 +113,7 @@ score, because the thing doing the work is a record that is still acting.
 
 ---
 
-## 4. Unreliable memory — [`unreliable_memory.catharsis`](unreliable_memory.catharsis)
+## 4. Unreliable memory — [`unreliable_memory.feel`](unreliable_memory.feel)
 
 `recall` is not a lookup and does not return a boolean.
 
@@ -148,7 +149,7 @@ Three distinct, well-defined states that a boolean has no room for.
 
 ---
 
-## 5. Emergent society — [`society.catharsis`](society.catharsis)
+## 5. Emergent society — [`society.feel`](society.feel)
 
 Four agents, some bread, four temperaments, no social algorithm. Run with `--trace`:
 
@@ -201,7 +202,7 @@ emergent as friendship here.
 
 ---
 
-## 6. Multi-agent coordination — [`coordination.catharsis`](coordination.catharsis) and [`coordination_broken.catharsis`](coordination_broken.catharsis)
+## 6. Multi-agent coordination — [`coordination.feel`](coordination.feel) and [`coordination_broken.feel`](coordination_broken.feel)
 
 Three people, one shared goal, nobody in charge. `contribute` is pulled by the mean trust an
 agent feels toward its group and held back by the mean doubt.
@@ -233,7 +234,7 @@ point of the relationships, and you can lose it by editing the feelings.
 
 ---
 
-## 7. Regret and alternate histories — [`regret.catharsis`](regret.catharsis)
+## 7. Regret and alternate histories — [`regret.feel`](regret.feel)
 
 `regret` forks rather than rewinds.
 
@@ -264,7 +265,7 @@ regretting carries the regret in its own memory signature.
 
 ---
 
-## 8. Contradiction — [`contradiction.catharsis`](contradiction.catharsis)
+## 8. Contradiction — [`contradiction.feel`](contradiction.feel)
 
 ```
 alice                                          (at tick 0)
@@ -290,3 +291,53 @@ contradiction acts less often than one that is merely indifferent. Ambivalence l
 paralysis from the outside, and that falls out of the arithmetic rather than out of a rule
 about ambivalence. `acceptance` is the only thing that collapses a contradiction, and it pays
 out whichever side loses as grief.
+
+---
+
+## 9. The emoji shorthand — [`emoji.feel`](emoji.feel)
+
+A love triangle, written entirely in glyphs.
+
+```
+alice = 👤
+bob   = 👤
+carol = 👤
+
+❤️ alice bob 0.9
+❤️ bob alice 0.7
+🤝 bob alice 0.8
+
+❤️ carol bob 0.8
+💚 carol alice 0.7
+🧍 carol 0.6
+
+⏱️ 12
+```
+
+```console
+$ catharsis run examples/emoji.feel --emoji --quiet
+alice
+    -> bob: ❤️ 0.88  🤝 0.57  🕊️ 0.35  🙏 0.28  💚 0.13
+bob
+    -> alice: ❤️ 0.81  🤝 0.80  🕊️ 0.33  🙏 0.28  💚 0.11
+    -> carol: ❤️ 0.19  🤝 0.17  🙏 0.17
+carol
+  self: 🧍 0.24  😢 0.09
+    -> bob: ❤️ 0.78  🤝 0.43  🕊️ 0.33  💚 0.12
+    -> alice: 💚 0.26  😠 0.11  😨 0.07
+```
+
+**Why this needs an emotional model.** Two things, one of which is not about emoji at all.
+
+The shorthand itself is a *spelling*, not a dialect: a glyph resolves through the same
+alias table as `lonely` → `loneliness`, and `tests/test_emoji.py` asserts that a program
+and its word-for-word transcription produce byte-identical worlds. A whole alternative
+surface syntax costs one dict, which is the clearest demonstration going that the
+vocabulary really is data.
+
+And the behaviour underneath is the usual thing: nobody tells Carol what to do about her
+jealousy. `reach_out` is pulled by love and loneliness and inhibited by fear and doubt, so
+she has more pressure to approach Bob than anyone else does, and over twelve ticks she
+wedges herself into the couple — ending with real warmth toward Bob (❤️ 0.78) and a
+hardening rivalry with Alice (💚 0.26 with 😠 and 😨 behind it) that she was never
+instructed to develop. Note that Bob now has a bond back to Carol and Alice does not.

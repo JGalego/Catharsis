@@ -23,7 +23,7 @@ PARTICLES = frozenset(
     {"about", "over", "of", "to", "toward", "towards", "with", "for", "from", "that", "at", "in"}
 )
 
-RESERVED = frozenset({"agent", "group"}) | PARTICLES
+RESERVED = frozenset({"agent", "group"}) | PARTICLES  # extended with the glyphs below
 
 
 @dataclass(frozen=True)
@@ -354,6 +354,65 @@ ALIASES: dict[str, str] = {
     "apologizing": "apologize",
     "accept": "acceptance",
 }
+
+#: One glyph per emotional axis.
+#:
+#: These are a second spelling, not a second language: ``GLYPHS`` feeds straight
+#: into :data:`ALIASES` below, so an emoji resolves to the same utterance as its
+#: word and there is not one line of runtime that knows the difference.  That is
+#: the point -- because the vocabulary is a table, a whole alternative surface
+#: syntax is a dict, and it can be checked by asserting that both spellings of a
+#: program produce an identical world.
+#:
+#: They earn their place a second time on the way out: a bond rendered as
+#: ``❤️ 0.82  🤝 0.75  🕊️ 0.72  🖤 0.32`` is readable at a glance in a way that
+#: six emotion words in a row are not.  See ``catharsis run --emoji``.
+GLYPHS: dict[str, str] = {
+    "love": "❤️",
+    "trust": "🤝",
+    "hope": "🕊️",
+    "joy": "😄",
+    "pride": "🦁",
+    "curiosity": "🔍",
+    "gratitude": "🙏",
+    "anger": "😠",
+    "fear": "😨",
+    "doubt": "🤔",
+    "sadness": "😢",
+    "grief": "🖤",
+    "shame": "🙈",
+    "guilt": "😞",
+    "envy": "😒",
+    "jealousy": "💚",
+    "loneliness": "🧍",
+    "surprise": "😲",
+    "regret": "🛤️",
+    "resentment": "🧊",
+}
+
+#: Glyphs for the events that have an obvious one.  Deliberately partial: an
+#: emoji nobody would guess is worse than the word it replaces.
+EVENT_GLYPHS: dict[str, str] = {
+    "betray": "💔",
+    "apologize": "🙇",
+    "forgive": "🤲",
+    "witness": "👁️",
+    "gift": "🎁",
+    "remember": "🧠",
+    "recall": "💭",
+    "denial": "🙅",
+    "acceptance": "🧘",
+    "choice": "🔀",
+    "tick": "⏱️",
+}
+
+#: Every glyph the language answers to, mapped to what it means.
+ALL_GLYPHS: dict[str, str] = {**GLYPHS, **EVENT_GLYPHS}
+
+#: ``alice = 👤`` is the same declaration as ``alice = agent``.
+AGENT_GLYPH = "👤"
+
+ALIASES.update({glyph: name for name, glyph in ALL_GLYPHS.items()})
 
 VOCABULARY: dict[str, Utterance] = _base_table()
 

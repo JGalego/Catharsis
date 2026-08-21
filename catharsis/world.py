@@ -71,7 +71,7 @@ class Decision:
 class World:
     """Everything that exists, and the rules by which it changes."""
 
-    def __init__(self, sink=None, trace: bool = False) -> None:
+    def __init__(self, sink=None, trace: bool = False, emoji: bool = False) -> None:
         self.agents: dict[str, Agent] = {}
         self.groups: dict[str, Group] = {}
         self.negotiations: list[Negotiation] = []
@@ -79,6 +79,8 @@ class World:
         self.log: list[Event] = []
         self.sink = sink if sink is not None else (lambda line: None)
         self.trace = trace
+        #: Render state with one glyph per emotion instead of the word.
+        self.emoji = emoji
         self.filename = "<source>"
 
     # ------------------------------------------------------------------

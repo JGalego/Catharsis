@@ -21,7 +21,7 @@ jobs:
         run: python -m unittest discover -s tests -v
       - name: Run every example
         run: |
-          for program in examples/*.catharsis; do
+          for program in examples/*.feel; do
             echo "== $program"
             python -m catharsis run "$program" --quiet
           done

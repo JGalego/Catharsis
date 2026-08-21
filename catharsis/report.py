@@ -4,18 +4,28 @@ from __future__ import annotations
 
 from .entity import Agent, Group, Memory
 from .field import contradictions, dominant
+from .vocabulary import GLYPHS
 
 
-def _charge_line(charge: dict[str, float], limit: int = 6) -> str:
-    parts = [f"{name} {value:.2f}" for name, value in dominant(charge, limit=limit)]
+def _name(world, emotion: str) -> str:
+    """An emotion's word, or its glyph when the world is rendering in emoji."""
+    if getattr(world, "emoji", False):
+        return GLYPHS.get(emotion, emotion)
+    return emotion
+
+
+def _charge_line(world, charge: dict[str, float], limit: int = 6) -> str:
+    parts = [f"{_name(world, name)} {value:.2f}" for name, value in dominant(charge, limit=limit)]
     return "  ".join(parts) if parts else "-"
 
 
-def _tension_note(charge: dict[str, float]) -> str:
+def _tension_note(world, charge: dict[str, float]) -> str:
     pairs = contradictions(charge)
     if not pairs:
         return ""
-    rendered = ", ".join(f"{left}/{right} {overlap:.2f}" for left, right, overlap in pairs[:3])
+    rendered = ", ".join(
+        f"{_name(world, left)}/{_name(world, right)} {overlap:.2f}" for left, right, overlap in pairs[:3]
+    )
     return f"   [holding: {rendered}]"
 
 
@@ -39,9 +49,11 @@ def render_memory(world, agent: Agent, memory: Memory, indent: str = "    ") -> 
     # keeps its signature and stops pushing the hostile part of it.
     live = memory.rumination()
     if live:
-        lines.append(f"{indent}  still pushing: {_charge_line(live, limit=4)}")
+        lines.append(f"{indent}  still pushing: {_charge_line(world, live, limit=4)}")
     elif memory.signature:
-        lines.append(f"{indent}  pushing nothing (signature: {_charge_line(memory.signature, limit=4)})")
+        lines.append(
+            f"{indent}  pushing nothing (signature: {_charge_line(world, memory.signature, limit=4)})"
+        )
     return lines
 
 
@@ -69,14 +81,14 @@ def render_memories(world, agent: Agent) -> list[str]:
 def render_agent(world, agent: Agent) -> list[str]:
     me = agent.self_bond
     lines = [f"{agent.name}"]
-    lines.append(f"  self: {_charge_line(me.charge)}{_tension_note(me.charge)}")
+    lines.append(f"  self: {_charge_line(world, me.charge)}{_tension_note(world, me.charge)}")
     others = agent.others()
     if others:
         lines.append("  bonds:")
         for bond in sorted(others, key=lambda b: (-b.intensity, b.target)):
             ceiling = "" if bond.trust_ceiling >= 0.999 else f"   [trust ceiling {bond.trust_ceiling:.2f}]"
             lines.append(
-                f"    -> {bond.target}: {_charge_line(bond.charge)}{ceiling}{_tension_note(bond.charge)}"
+                f"    -> {bond.target}: {_charge_line(world, bond.charge)}{ceiling}{_tension_note(world, bond.charge)}"
             )
     if agent.resources or agent.needs:
         parts = []

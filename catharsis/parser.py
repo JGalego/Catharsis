@@ -18,7 +18,7 @@ from __future__ import annotations
 from .ast import Arg, Declare, Program, Utter
 from .errors import ParseError, suggest
 from .lexer import Token, tokenize
-from .vocabulary import PARTICLES, RESERVED, VOCABULARY, lookup, resolve
+from .vocabulary import AGENT_GLYPH, ALIASES, PARTICLES, RESERVED, VOCABULARY, lookup, resolve
 
 _NAME_KINDS = {"agent", "entity", "group", "word", "event"}
 
@@ -104,15 +104,16 @@ class Parser:
         name_token = self.advance()
         self.advance()  # '='
         kind_token = self.current
-        if kind_token.kind != "NAME" or kind_token.value != "agent":
+        if kind_token.kind != "NAME" or kind_token.value not in ("agent", AGENT_GLYPH):
             raise self.error(
                 "only 'agent' can be declared",
                 kind_token,
-                hint="write 'alice = agent'; groups are declared with 'group name'",
+                hint=f"write 'alice = agent' (or 'alice = {AGENT_GLYPH}'); "
+                "groups are declared with 'group name'",
             )
         self.advance()
         name = str(name_token.value)
-        if name in RESERVED or name in VOCABULARY:
+        if name in RESERVED or name in VOCABULARY or name in ALIASES:
             raise self.error(
                 f"'{name}' is a reserved word and cannot name an agent",
                 name_token,

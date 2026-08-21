@@ -36,7 +36,7 @@ edge and guilt on the other, and lays down a memory on both sides. Everything th
 follows is the field working — here is what those ten lines actually do:
 
 ```console
-$ catharsis run intro.catharsis --trace --quiet
+$ catharsis run intro.feel --trace --quiet
 [tick 1] alice apologised to bob (landed 14%)
 [tick 1] bob confronted alice
 [tick 3] bob turned "alice betrayed bob" over again
@@ -52,6 +52,38 @@ twice, and it landed at 14% because that is how much of an overture gets through
 resentment Bob is holding. Bob was never told to confront her, brood or withdraw. And
 forgiving disarmed his memories rather than removing them — the ceiling on how far he can
 trust her again is part of the output.
+
+### The same program, in glyphs
+
+Every emotion and the commonest events have a glyph, and a glyph is a *second spelling*,
+not a second language — it resolves through the same alias table as `lonely` →
+`loneliness`, so no line of the runtime knows the difference. `tests/test_emoji.py`
+asserts that: the two spellings of one program produce byte-identical worlds.
+
+```
+alice = 👤          ❤️  love     🤝 trust    🕊️  hope     😄 joy       🦁 pride
+bob   = 👤          🔍 curious  🙏 grateful 😠 anger    😨 fear      🤔 doubt
+                    😢 sadness  🖤 grief    🙈 shame    😞 guilt     😒 envy
+❤️ alice bob         💚 jealousy 🧍 lonely   😲 surprise 🛤️  regret    🧊 resentment
+💔 alice bob         💔 betray   🙇 apology  🤲 forgive  👁️  witness   🎁 gift
+🖤 bob               🧠 remember 💭 recall   🙅 deny     🧘 accept    🔀 choice
+🤔 bob alice         ⏱️  tick     👤 agent
+⏱️ 8
+🤲 bob alice
+```
+
+They earn their place a second time on the way out. `--emoji` renders the field in the
+same alphabet, which makes a relationship legible at a glance in a way six emotion words
+in a row are not:
+
+```console
+$ catharsis run examples/emoji.feel --emoji --quiet
+carol
+  self: 🧍 0.24  😢 0.09
+  bonds:
+    -> bob: ❤️ 0.78  🤝 0.43  🕊️ 0.33  💚 0.12
+    -> alice: 💚 0.26  😠 0.11  😨 0.07
+```
 
 ## What makes it different from a conventional language
 
@@ -100,20 +132,22 @@ Without installing, `python -m catharsis` works identically from the repository 
 ### Running the interpreter
 
 ```bash
-catharsis run examples/forgiveness.catharsis     # run a program and print the final state
-catharsis run examples/society.catharsis --trace # ...and narrate every event as it happens
-catharsis run examples/reputation.catharsis --json
-catharsis check examples/negotiation.catharsis   # parse without running
+catharsis run examples/forgiveness.feel          # run a program and print the final state
+catharsis run examples/society.feel --trace      # ...and narrate every event as it happens
+catharsis run examples/contradiction.feel --emoji  # ...with one glyph per emotion
+catharsis run examples/reputation.feel --json
+catharsis check examples/negotiation.feel        # parse without running
 catharsis words                                  # everything the language can say
 ```
 
 Useful flags: `--ticks N` runs extra ticks after the program ends, `--quiet` suppresses the
-closing report, `--json` emits the whole world as machine-readable state.
+closing report, `--json` emits the whole world as machine-readable state, `--emoji` renders
+the field in glyphs.
 
 ### Running an example
 
 ```console
-$ catharsis run examples/forgiveness.catharsis --quiet
+$ catharsis run examples/forgiveness.feel --quiet
 bob
   self: grief 0.67  sadness 0.55  love 0.25  trust 0.13
   bonds:
@@ -133,7 +167,7 @@ and it is a fact about the runtime, not a string.
 ### Running the tests
 
 ```bash
-python -m unittest discover -s tests -v     # 68 tests, no dependencies
+python -m unittest discover -s tests -v     # 86 tests, no dependencies
 ruff check catharsis tests                  # optional: lint
 ruff format --check catharsis tests         # optional: formatting
 ```
@@ -145,15 +179,16 @@ Every example is a runnable program with its reasoning in the file itself, and
 
 | Example | What it shows |
 | --- | --- |
-| [negotiation.catharsis](examples/negotiation.catharsis) | Two agents bargain to a settled price with no negotiation algorithm anywhere. How far each side moves *is* how it feels: `trust + hope + guilt + love + fear` against `pride + anger + resentment + doubt`. Alice's pride wins her the price; Bob's fear loses it — and he ends up holding gratitude and resentment at the same time. |
-| [reputation.catharsis](examples/reputation.catharsis) | Alice betrays Bob, Charlie sees it, and Diana — who never met Alice and saw nothing — ends up doubting her, via a memory tagged `told \| from charlie` with its own confidence. The damage is strictly graded: victim > witness > hearsay. |
-| [forgiveness.catharsis](examples/forgiveness.catharsis) | Can Bob forgive Alice without forgetting what she did? Trust recovers to the ceiling the memory imposes and stops there, grief stays, and the memory keeps ruminating with its hostile half disarmed. |
-| [unreliable_memory.catharsis](examples/unreliable_memory.catharsis) | `recall` returns a confidence, an emotional weight and a contradiction count, never a boolean. `denial` suppresses the claim and the feeling goes on ruminating at full strength anyway. `acceptance` collapses it and charges grief. |
-| [society.catharsis](examples/society.catharsis) | Four agents, some bread, some temperament, no social algorithm. What emerges over 30 ticks: theft, gossip about the theft, confrontation, withdrawal, charity, and an outsider who ends up allied with the person who fed him — while a fourth agent, equally hungry, is left isolated because nobody is bonded to her. |
-| [coordination.catharsis](examples/coordination.catharsis) | Three agents and a shared goal with nobody in charge. Alice has enough hope to move first; the gratitude her work produces raises everyone else's trust until they join in, and the goal is met at tick 12. |
-| [coordination_broken.catharsis](examples/coordination_broken.catharsis) | The same program with the trust graph broken. Nobody can move first, so the gratitude that would have unlocked the others is never generated, and the group never gets off zero. |
-| [regret.catharsis](examples/regret.catharsis) | `regret` forks rather than rewinds. The untaken road is kept as a live valuation that drifts upward the longer it is carried, so regret grows when the life you are in goes badly and shrinks when it goes well. |
-| [contradiction.catharsis](examples/contradiction.catharsis) | Love and anger, trust and doubt, hope and fear, all held at once and never collapsed. Action pressure is divided by `1 + tension`, so ambivalence looks like paralysis without anything in the runtime knowing about ambivalence. |
+| [negotiation.feel](examples/negotiation.feel) | Two agents bargain to a settled price with no negotiation algorithm anywhere. How far each side moves *is* how it feels: `trust + hope + guilt + love + fear` against `pride + anger + resentment + doubt`. Alice's pride wins her the price; Bob's fear loses it — and he ends up holding gratitude and resentment at the same time. |
+| [reputation.feel](examples/reputation.feel) | Alice betrays Bob, Charlie sees it, and Diana — who never met Alice and saw nothing — ends up doubting her, via a memory tagged `told \| from charlie` with its own confidence. The damage is strictly graded: victim > witness > hearsay. |
+| [forgiveness.feel](examples/forgiveness.feel) | Can Bob forgive Alice without forgetting what she did? Trust recovers to the ceiling the memory imposes and stops there, grief stays, and the memory keeps ruminating with its hostile half disarmed. |
+| [unreliable_memory.feel](examples/unreliable_memory.feel) | `recall` returns a confidence, an emotional weight and a contradiction count, never a boolean. `denial` suppresses the claim and the feeling goes on ruminating at full strength anyway. `acceptance` collapses it and charges grief. |
+| [society.feel](examples/society.feel) | Four agents, some bread, some temperament, no social algorithm. What emerges over 30 ticks: theft, gossip about the theft, confrontation, withdrawal, charity, and an outsider who ends up allied with the person who fed him — while a fourth agent, equally hungry, is left isolated because nobody is bonded to her. |
+| [coordination.feel](examples/coordination.feel) | Three agents and a shared goal with nobody in charge. Alice has enough hope to move first; the gratitude her work produces raises everyone else's trust until they join in, and the goal is met at tick 12. |
+| [coordination_broken.feel](examples/coordination_broken.feel) | The same program with the trust graph broken. Nobody can move first, so the gratitude that would have unlocked the others is never generated, and the group never gets off zero. |
+| [regret.feel](examples/regret.feel) | `regret` forks rather than rewinds. The untaken road is kept as a live valuation that drifts upward the longer it is carried, so regret grows when the life you are in goes badly and shrinks when it goes well. |
+| [emoji.feel](examples/emoji.feel) | A love triangle written entirely in glyphs, with the state rendered back the same way. Carol is told nothing about what to do with her jealousy; she wedges herself into the couple anyway. |
+| [contradiction.feel](examples/contradiction.feel) | Love and anger, trust and doubt, hope and fear, all held at once and never collapsed. Action pressure is divided by `1 + tension`, so ambivalence looks like paralysis without anything in the runtime knowing about ambivalence. |
 
 ## How it works
 

@@ -9,7 +9,7 @@ from catharsis.cli import main
 from catharsis.errors import CatharsisRuntimeError
 
 ROOT = Path(__file__).resolve().parent.parent
-EXAMPLES = sorted((ROOT / "examples").glob("*.catharsis"))
+EXAMPLES = sorted((ROOT / "examples").glob("*.feel"))
 
 
 class TestCLI(unittest.TestCase):
@@ -20,17 +20,17 @@ class TestCLI(unittest.TestCase):
         return code, out.getvalue(), err.getvalue()
 
     def test_check_reports_statement_count(self):
-        code, out, _ = self.run_cli("check", str(ROOT / "examples" / "forgiveness.catharsis"))
+        code, out, _ = self.run_cli("check", str(ROOT / "examples" / "forgiveness.feel"))
         self.assertEqual(code, 0)
         self.assertIn("statements, no syntax errors", out)
 
     def test_run_prints_a_report(self):
-        code, out, _ = self.run_cli("run", str(ROOT / "examples" / "contradiction.catharsis"))
+        code, out, _ = self.run_cli("run", str(ROOT / "examples" / "contradiction.feel"))
         self.assertEqual(code, 0)
         self.assertIn("=== world at tick", out)
 
     def test_json_output_is_valid(self):
-        code, out, _ = self.run_cli("run", str(ROOT / "examples" / "reputation.catharsis"), "--json")
+        code, out, _ = self.run_cli("run", str(ROOT / "examples" / "reputation.feel"), "--json")
         self.assertEqual(code, 0)
         payload = json.loads(out)
         self.assertIn("state", payload)
@@ -38,7 +38,7 @@ class TestCLI(unittest.TestCase):
         self.assertIsInstance(payload["output"], list)
 
     def test_trace_shows_events(self):
-        code, out, _ = self.run_cli("run", str(ROOT / "examples" / "society.catharsis"), "--trace", "--quiet")
+        code, out, _ = self.run_cli("run", str(ROOT / "examples" / "society.feel"), "--trace", "--quiet")
         self.assertEqual(code, 0)
         self.assertIn("[tick 1]", out)
 
@@ -49,7 +49,7 @@ class TestCLI(unittest.TestCase):
         self.assertIn("betray", out)
 
     def test_a_syntax_error_exits_nonzero_with_a_caret(self):
-        bad = ROOT / "tests" / "_bad.catharsis"
+        bad = ROOT / "tests" / "_bad.feel"
         bad.write_text("alice = agent\nlvoe alice bob\n", encoding="utf-8")
         try:
             code, _, err = self.run_cli("run", str(bad))
@@ -60,7 +60,7 @@ class TestCLI(unittest.TestCase):
         self.assertIn("^", err)
 
     def test_a_missing_file_is_reported(self):
-        code, _, err = self.run_cli("run", str(ROOT / "nope.catharsis"))
+        code, _, err = self.run_cli("run", str(ROOT / "nope.feel"))
         self.assertEqual(code, 1)
         self.assertIn("no such program", err)
 
