@@ -1,0 +1,107 @@
+# Romeo and Juliet — Strogatz's love affair, and where Catharsis differs
+#
+# ==============================================================================
+# THE SOURCE
+#
+# Steven Strogatz, "Love affairs and differential equations", Mathematics
+# Magazine 61(1):35, 1988. Romeo's feeling R and Juliet's J obey
+#
+#     dR/dt = a R + b J          a, d  "cautiousness"  — how your own feeling fades
+#     dJ/dt = c R + d J          b, c  "responsiveness" — how you react to theirs
+#
+# and the four qualitative regimes fall out of the eigenvalues of that 2x2
+# matrix: eager beavers who amplify each other, cautious lovers who fade,
+# mismatched pairs who chase and flee, and the oscillating cycle.
+#
+# ==============================================================================
+# WHAT CATHARSIS DOES DIFFERENTLY, ON PURPOSE
+#
+# Strogatz's axis is signed: R < 0 is hatred. That is exactly the collapse this
+# language refuses. Love and anger are separate non-negative axes here so that a
+# contradiction can be *held*, and Strogatz's model is roughly what you get by
+# quotienting Catharsis under "subtract each antagonist pair" — the projection the
+# whole design exists to avoid. So this is not a port of his model. It is his
+# *method* applied to a different state space.
+#
+# The other difference is structural, and it is the reason for the result below.
+# In Strogatz, `b` — responsiveness to the other person — is a coefficient in the
+# matrix. Catharsis has no such coefficient: nothing in `field.py` couples one
+# agent's feeling to another's. Responsiveness lives in the *action* layer
+# instead, in `reach_out` and whether the other party is receptive. Catharsis
+# models responsiveness as behaviour rather than as a number.
+#
+# ==============================================================================
+# WHAT ACTUALLY HAPPENS, INCLUDING THE PART THAT IS WRONG
+#
+# Five setups below, one per pair, all run for the same 30 ticks. Strogatz's four
+# regimes do not appear. Final love, each direction:
+#
+#     1  eager on both sides                  0.81 / 0.80
+#     2  romeo eager, juliet timid            0.81 / 0.80   <- identical to 1
+#     3  both cautious                        0.81 / 0.80   <- identical to 1
+#     4  romeo alone, unrequited              0.72 / 0.59   <- she loves him back
+#     5  juliet resents him                   0.56 / 0.00
+#
+# Rows 1-3 are not merely close. They are bit-identical on all twenty axes. The
+# `fear` temperament changes the pairs' *self-regard* — romeo's self-fear ends at
+# 0.24 in row 3 and 0.00 in row 1 — and changes the bond by exactly nothing.
+#
+# That is a structural fact about the runtime rather than a tuning accident.
+# `_spill` in `world.py` moves outward feeling onto self-regard, and there is no
+# statement in the field layer that goes the other way: a temperament can reach an
+# outward bond only by changing which *action* fires, and here none of them fire
+# differently. Strogatz's cautiousness parameter therefore has no analogue in
+# Catharsis's bond dynamics at all, which is why his cautious regime cannot appear.
+#
+# Row 4 is the second failure and a plainer one. Unrequited love should stay
+# one-sided; juliet, who is never given a single feeling in the program, ends up
+# loving him at 0.59. Trust flows outward through `reach_out` and comes back as
+# gratitude, and nothing in the model lets a person simply not be interested.
+#
+# So Catharsis currently has essentially ONE attractor for a two-person
+# relationship: mutual attachment at ~0.8, unless a grievance blocks it (row 5).
+#
+# This is not a surprise and it was not found by running the example. Run
+#
+#     catharsis spectrum
+#
+# and it says so in advance: love/trust is the one slice of the field that RUNS
+# AWAY, at 1.0200 per tick, with every other pair settling to indifference. Mutual
+# warmth is self-amplifying and only the clamp at 1.0 stops it. Attachment is not
+# an outcome here, it is a fixed point that almost every start falls into. The
+# spectrum is the prediction; this file is the confirmation.
+#
+# Fixing it is an intentional decision about that loop and about a path from
+# self-regard back to a bond — not a nudge to a constant. See the README's
+# "Status" section.
+
+# 1. Eager on both sides.
+agent romeo juliet
+love romeo juliet 0.4
+love juliet romeo 0.4
+
+# 2. He is eager, she is timid. Strogatz: a mismatched pair, chase and flee.
+agent romeo2 juliet2
+love romeo2 juliet2 0.4
+love juliet2 romeo2 0.4
+trait juliet2 fear 0.7
+
+# 3. Both cautious. Strogatz: this pair fades to mutual indifference.
+agent romeo3 juliet3
+trait romeo3 fear 0.7
+trait juliet3 fear 0.7
+love romeo3 juliet3 0.4
+love juliet3 romeo3 0.4
+
+# 4. Unrequited: she is given no feeling about him whatsoever.
+agent romeo4 juliet4
+love romeo4 juliet4 0.4
+
+# 5. The one regime that does come out distinct: grievance beats the warm loop.
+agent romeo5 juliet5
+love romeo5 juliet5 0.7
+resentment juliet5 romeo5 0.7
+
+tick 30
+
+observe

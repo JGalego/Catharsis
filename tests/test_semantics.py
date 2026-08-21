@@ -459,3 +459,215 @@ class TestCommons(unittest.TestCase):
             if "gave" in memory.claim
         ]
         self.assertTrue(remembered, "the sharing should have left memories behind")
+
+
+class TestSettle(unittest.TestCase):
+    """`settle` is the only statement whose length the data decides."""
+
+    REGISTER = (
+        "agent giver sink\n"
+        "have giver unit {n}\nneed giver unit 0\nneed sink unit 100000\n"
+        "love giver sink 0.95\ntrust giver sink 0.95\n"
+    )
+
+    def test_the_loop_runs_as_long_as_the_data_says(self):
+        for n in (3, 11, 25):
+            with self.subTest(n=n):
+                world = run_source(self.REGISTER.format(n=n) + "settle 400\n")
+                self.assertEqual(world.agents["giver"].resources["unit"], 0.0)
+                self.assertEqual(world.agents["sink"].resources["unit"], float(n))
+
+    def test_the_register_is_exact(self):
+        # Not "roughly n" — a counter that leaks is not a counter.  Units move by
+        # two routes: the giver gives, and the sink, being desperate, also takes.
+        world = run_source(self.REGISTER.format(n=17) + "settle 500\n")
+        moved = sum(1 for event in world.log if "gave sink unit" in event.text or "took unit" in event.text)
+        self.assertEqual(moved, 17)
+        self.assertEqual(world.agents["sink"].resources["unit"], 17.0)
+
+    def test_a_bound_is_honoured(self):
+        world = run_source("agent a b\nlove a b 0.9\nsettle 12\n")
+        self.assertLessEqual(world.tick_count, 12)
+
+    def test_settling_stops_when_the_field_goes_quiet(self):
+        # Two strangers with nothing between them have nothing to do.
+        world = run_source("agent a b\nsettle 500\n")
+        self.assertLess(world.tick_count, 500)
+
+    def test_quiet_is_not_declared_on_the_first_idle_tick(self):
+        # Habituation makes an agent skip a tick and resume later; a settle that
+        # stopped at the first gap would cut the register drain short.
+        world = run_source(self.REGISTER.format(n=11) + "settle 400\n")
+        acts = [event.tick for event in world.log if "gave sink unit" in event.text]
+        self.assertGreater(max(acts) - min(acts) + 1, len(acts), "the gives were not contiguous")
+
+    def test_a_non_positive_bound_is_an_error(self):
+        with self.assertRaises(CatharsisRuntimeError):
+            run_source("agent a\nsettle 0\n")
+
+    def test_the_language_is_no_longer_total(self):
+        """The one-line disproof of Turing-completeness no longer applies.
+
+        It used to be "every Catharsis program halts", which made halting
+        decidable.  Here is a program that does not reach a fixed point inside a
+        budget it is free to exceed; with the bound removed it would not stop at
+        all.  That does not make the language Turing-complete -- see
+        ``examples/machine.feel`` for exactly what is still missing -- but it
+        does remove the argument that it cannot be.
+        """
+        restless = (
+            "agent a b c\n"
+            "have a unit 400\nneed a unit 0\nneed b unit 100000\nneed c unit 100000\n"
+            "love a b 0.95\ntrust a b 0.95\nlove b c 0.9\ntrust b c 0.9\n"
+            "settle 900\n"
+        )
+        world = run_source(restless)
+        self.assertEqual(world.tick_count, 900, "the field went quiet, so nothing is demonstrated")
+
+
+class TestCounterMachine(unittest.TestCase):
+    """How far the runtime gets toward a counter machine, and where it stops.
+
+    Every claim in ``examples/machine.feel`` is one of these.  They assert a
+    limitation as much as a capability, so if the runtime ever gains the missing
+    piece, these fail and the example is due a rewrite rather than a footnote.
+    Each check builds its own world: an agent with an unsatisfiable appetite
+    competes with anyone holding anything, so these casts must not share a stage.
+    """
+
+    # -- 1. the register ------------------------------------------------------
+    def test_the_decrement_is_exact_and_its_duration_depends_on_the_data(self):
+        register = (
+            "agent giver sink\n"
+            "have giver unit {n}\nneed giver unit 0\nneed sink unit 100000\n"
+            "love giver sink 0.95\ntrust giver sink 0.95\nsettle 900\n"
+        )
+        durations = []
+        for n in (3, 11, 25, 60):
+            world = run_source(register.format(n=n))
+            self.assertEqual(world.agents["giver"].resources["unit"], 0.0)
+            self.assertEqual(world.agents["sink"].resources["unit"], float(n))
+            moves = [event.tick for event in world.log if "unit" in event.text and event.kind == "act"]
+            durations.append(max(moves))
+        self.assertEqual(durations, sorted(durations), "a bigger register should take longer")
+        self.assertGreater(
+            durations[-1] / durations[0], 60 / 3, "habituation should make it worse than linear"
+        )
+
+    # -- 3. a two-state program counter --------------------------------------
+    FLIPFLOP = (
+        "agent left right\n"
+        "have left baton 1\nhave right baton 0\nneed left baton 1\nneed right baton 1\n"
+        "pride left 0.5\npride right 0.5\n"
+        "envy left right 0.8\nenvy right left 0.8\n"
+        "jealousy left right 0.6\njealousy right left 0.6\n"
+        "settle 60\n"
+    )
+
+    def test_a_grudge_is_a_flip_flop(self):
+        # Being robbed deposits anger; anger is a term in `_standing`; standing
+        # is what decides the next theft.  Losing the baton is what lets you
+        # take it back, so two agents alternate exactly, with nothing scheduling it.
+        world = run_source(self.FLIPFLOP)
+        moves = [event.text for event in world.log if "took baton from" in event.text]
+        self.assertGreater(len(moves), 30, "the alternation died out")
+        holders = [text.split()[0] for text in moves]
+        self.assertTrue(
+            all(a != b for a, b in zip(holders, holders[1:], strict=False)),
+            "the baton was taken twice in a row by the same agent",
+        )
+        self.assertEqual(
+            sum(world.agents[name].resources["baton"] for name in ("left", "right")),
+            1.0,
+            "the baton was duplicated or lost",
+        )
+
+    # -- 4a. why three states do not work ------------------------------------
+    def test_a_ring_of_three_is_broken_by_retaliation(self):
+        # `compete` deposits anger in the victim *toward the taker*, and anger is
+        # in `compete`'s own affinity, so every transfer creates a back-edge.
+        ring = (
+            "agent a b c\n"
+            "have a baton 1\nhave b baton 0\nhave c baton 0\n"
+            "need a baton 1\nneed b baton 1\nneed c baton 1\n"
+            "pride a 0.5\npride b 0.5\npride c 0.5\n"
+            "envy b a 0.9\njealousy b a 0.7\n"
+            "envy c b 0.9\njealousy c b 0.7\n"
+            "envy a c 0.9\njealousy a c 0.7\n"
+            "settle 60\n"
+        )
+        world = run_source(ring)
+        hops = [
+            (text.split()[0], text.split()[-1])
+            for text in (event.text for event in world.log)
+            if "took baton from" in text
+        ]
+        self.assertTrue(hops)
+        intended = {("b", "a"), ("c", "b"), ("a", "c")}
+        against = [hop for hop in hops if hop not in intended]
+        self.assertTrue(against, "the ring held, which contradicts examples/machine.feel")
+
+    # -- 4b. why one agent is not a read-write register ----------------------
+    TAKER = (
+        "agent reg pile\n"
+        "have pile unit 100\nneed pile unit 0\nhave reg unit 0\n"
+        "trait reg pride 0.9\nenvy reg pile 0.95\njealousy reg pile 0.95\n"
+        # too frightened to take anything back, so retaliation is not the cause
+        "trait pile fear 0.9\nfear pile reg 0.95\nlove pile reg 0.6\n"
+    )
+
+    def test_an_agent_that_needs_nothing_can_still_take(self):
+        # The obvious obstruction -- `give`'s spare/short conditions being
+        # mutually exclusive -- is not the real one.  `compete` has no `need`
+        # condition at all.
+        world = run_source(self.TAKER + "need reg unit 0\nsettle 40\n")
+        self.assertGreater(world.agents["reg"].resources["unit"], 0.0)
+
+    def test_but_not_indefinitely_because_nothing_renews_the_envy(self):
+        short = run_source(self.TAKER + "need reg unit 0\nsettle 40\n")
+        long = run_source(self.TAKER + "need reg unit 0\nsettle 400\n")
+        self.assertEqual(
+            long.agents["reg"].resources["unit"],
+            short.agents["reg"].resources["unit"],
+            "ten times as long moved more units, so the counter is not saturating",
+        )
+
+    def test_a_standing_need_makes_the_increment_unbounded(self):
+        # ...and that same need is what `give`'s `own_need` inhibitor keys on,
+        # which is the actual mutual exclusion.
+        hungry = self.TAKER.replace("have pile unit 100", "have pile unit 100000")
+        short = run_source(hungry + "need reg unit 100000\nsettle 60\n")
+        long = run_source(hungry + "need reg unit 100000\nsettle 240\n")
+        self.assertGreater(long.agents["reg"].resources["unit"], short.agents["reg"].resources["unit"])
+        self.assertGreater(long.agents["reg"].resources["unit"], 50.0)
+
+    # -- 5. what would close it ----------------------------------------------
+    def test_a_renewing_need_gives_a_directed_ring(self):
+        """The missing primitive, emulated by hand: an appetite that comes back.
+
+        `give` leaves gratitude rather than anger, so unlike `compete` it has no
+        back-edge, and the ring runs clean -- one hop per phase, exactly once
+        each.  The renewal is three hand-written statements here, which is why
+        this is a sketch of the fix and not the fix.
+        """
+        world = run_source(
+            "agent one two three\n"
+            "have one baton 1\nneed one baton 0\nneed two baton 1\nneed three baton 0\n"
+            "love one two 0.9\ntrust one two 0.9\n"
+            "love two three 0.9\ntrust two three 0.9\n"
+            "love three one 0.9\ntrust three one 0.9\n"
+            "settle 8\n"
+            "need two baton 0\nneed three baton 1\nsettle 8\n"
+            "need three baton 0\nneed one baton 1\nsettle 8\n"
+        )
+        # `X gave Y baton`, and not the confiding that echoes it back as a quote.
+        hops = [
+            event.text
+            for event in world.log
+            if event.kind == "act" and event.text.split()[1::2][:1] == ["gave"] and '"' not in event.text
+        ]
+        self.assertEqual(
+            hops,
+            ["one gave two baton", "two gave three baton", "three gave one baton"],
+        )
+        self.assertEqual(world.agents["one"].resources["baton"], 1.0)

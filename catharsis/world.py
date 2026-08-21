@@ -49,6 +49,11 @@ TEMPERAMENT_RATE = 0.08
 #: Maximum share of the remaining gap a negotiator will close in one round.
 MAX_CONCESSION = 0.40
 
+#: How many actionless ticks ``settle`` needs before it believes the field is
+#: done.  Must exceed the time for full habituation to wear off, or a resting
+#: agent looks like a finished one.
+QUIET_TICKS = 8
+
 
 def source_line(node) -> str:
     """The statement as the author wrote it, minus any trailing comment."""
@@ -342,6 +347,37 @@ class World:
             raise self.fail(node, "tick needs a positive number of steps")
         for _ in range(steps):
             self.step()
+
+    def _effect_settle(self, node: Utter, a, b) -> None:
+        """Tick until the field goes quiet.
+
+        Every other statement in Catharsis runs for a length fixed by the program
+        text, which is why every program used to halt and why the language was
+        strictly weaker than a Turing machine.  This one runs until no agent's
+        pressure clears the action threshold -- a data-dependent stopping
+        condition, and the missing ingredient.  A program using it may not
+        terminate, which is the price of the power.
+
+        The optional bound is a safety valve for programs that are meant to
+        terminate; without it there is none, on purpose.
+        """
+        limit = node.slot(0)
+        bound = int(limit) if limit is not None else None
+        if bound is not None and bound < 1:
+            raise self.fail(node, "settle needs a positive bound")
+        started = self.tick_count
+        idle = 0
+        while bound is None or self.tick_count - started < bound:
+            before = len(self.log)
+            self.step()
+            acted = any(event.kind == "act" for event in self.log[before:])
+            # Quiet means quiet for a while.  A single actionless tick proves
+            # nothing: habituation wears off at a fixed rate, so an agent that
+            # cannot move this tick may well move in three.
+            idle = 0 if acted else idle + 1
+            if idle >= QUIET_TICKS:
+                break
+        self.record("settle", f"quiet after {self.tick_count - started} ticks")
 
     def _effect_observe(self, node: Utter, a, b) -> None:
         from .report import render_agent, render_group, render_world

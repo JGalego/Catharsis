@@ -327,6 +327,13 @@ def _base_table() -> dict[str, Utterance]:
         effect="tick",
     )
 
+    table["settle"] = Utterance(
+        name="settle",
+        params=("number?",),
+        doc="tick until nobody acts — the only unbounded loop in the language, and what makes it Turing-complete",
+        effect="settle",
+    )
+
     table["observe"] = Utterance(
         name="observe",
         params=("entity?",),

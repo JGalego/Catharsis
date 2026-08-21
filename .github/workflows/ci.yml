@@ -26,6 +26,20 @@ jobs:
             python -m catharsis run "$program" --quiet
             python -m catharsis visualize "$program" -o /tmp/out.html
           done
+      - name: Analyse the field
+        run: |
+          python -m catharsis spectrum
+          python -m catharsis spectrum examples/romeo.feel --edge romeo juliet -o /tmp/phase.html
+          python - <<'PY'
+          import json, pathlib, re
+
+          page = pathlib.Path("/tmp/phase.html").read_text()
+          blob = re.search(r'<script type="application/json" id="payload">(.*?)</script>', page, re.S)
+          assert blob, "the phase page has no payload"
+          payload = json.loads(blob.group(1))
+          assert payload["slices"], "the phase page has no slices"
+          assert payload["bifurcation"], "the phase page has no bifurcation"
+          PY
 
   lint:
     runs-on: ubuntu-latest

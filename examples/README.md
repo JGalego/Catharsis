@@ -424,3 +424,79 @@ created it, sustained by the memory of having been given something.
 **What it does not do**, and the test says so explicitly: the same fish exist in both runs.
 The emotional layer changes whether the shortfall is shared or taken, and whether the
 collective task gets done. It does not create fish.
+
+---
+
+## 12. A negative result, kept — [`romeo.feel`](romeo.feel)
+
+Steven Strogatz's "Love affairs and differential equations" (*Mathematics Magazine* 61(1):35,
+1988) models Romeo's feeling `R` and Juliet's `J` as `dR/dt = aR + bJ`, `dJ/dt = cR + dJ`,
+and reads four qualitative regimes off the eigenvalues. This file applies his *method* to
+Catharsis's state space rather than porting his model — his axis is signed, and `R < 0` being
+hatred is exactly the collapse this language exists to refuse.
+
+Five setups, one per pair, all run 30 ticks. Final love, each direction:
+
+```
+1  eager on both sides                  0.81 / 0.80
+2  romeo eager, juliet timid            0.81 / 0.80   <- identical to 1
+3  both cautious                        0.81 / 0.80   <- identical to 1
+4  romeo alone, unrequited              0.72 / 0.59   <- she loves him back
+5  juliet resents him                   0.56 / 0.00
+```
+
+**Rows 1–3 are not close, they are bit-identical on all twenty axes.** The `fear` temperament
+changes self-regard — romeo's self-fear ends at 0.24 in row 3 and 0.00 in row 1 — and changes
+the bond by exactly nothing. That is structural: `_spill` in `world.py` moves outward feeling
+onto self-regard and nothing in the field layer goes the other way, so a temperament can
+reach an outward bond only by changing which *action* fires, and here none of them fire
+differently. Strogatz's cautiousness parameter has no analogue in Catharsis's bond dynamics,
+which is why his cautious regime cannot appear.
+
+Row 4 is a plainer failure: unrequited love should stay one-sided, and Juliet — given no
+feeling whatsoever in the program — ends up loving him at 0.59. Nothing in the model lets a
+person simply not be interested.
+
+**Why the example is kept.** It was not found by running the file. `catharsis spectrum`
+predicts it: love/trust is the one slice of the field that RUNS AWAY, at 1.0200 per tick,
+with every other pair settling to indifference. Attachment is not an outcome here, it is a
+fixed point that almost every start falls into. The spectrum is the prediction; the example
+is the confirmation; and `TestStrogatz` in `tests/test_analysis.py` asserts the limitation so
+that if the runtime ever gains the missing coupling, the test fails and the file is due a
+rewrite rather than a footnote.
+
+---
+
+## 13. How far it gets toward a counter machine — [`machine.feel`](machine.feel)
+
+`settle` ticks until nobody acts, with no bound required, which makes it the only statement
+whose length is decided by the data. That is enough to remove the one-line disproof of
+Turing-completeness — "every Catharsis program halts" — and enough for an exact register:
+
+```
+N        units moved   last move at tick
+ 3            3                3
+11           11               16
+25           25               53
+60           60              114
+```
+
+The count is exact and the duration is a function of `N` that appears nowhere in the control
+flow, and it is not even linear in `N` because the giver habituates. Nothing in the program
+counts anything.
+
+The `settle 400` in the file really does run 400 ticks. The register drains by tick 16 and
+then the two of them go on reaching out forever — because that is what `spectrum` says the
+love/trust slice does. **The warmth that powers the loop is the same thing that stops the
+field ever going quiet.** Remove the bound and the program does not terminate, which is the
+property being demonstrated.
+
+The rest of the file is about where it stops, and the two obstructions turn out to be the
+same fact: `compete` always deposits anger in the victim pointing back at the taker, so
+control transfer in Catharsis is natively bidirectional. Two agents and one baton give an
+exact flip-flop — a program counter built out of a grudge — and a ring of three collapses.
+See the README's ["Is it Turing-complete?"](../README.md#is-it-turing-complete) section for
+the full account and the one primitive that would close it. Every claim in it is a check in
+`TestCounterMachine` in `tests/test_semantics.py`, each in a world of its own: an agent with
+an unsatisfiable appetite competes with anyone holding anything, so these casts must not
+share a stage.
