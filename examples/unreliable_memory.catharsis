@@ -1,0 +1,45 @@
+# Unreliable memory
+#
+# `recall` does not return true or false, and it is not free.
+#
+# A memory carries four stances -- affirm, deny, doubt, hope -- which accumulate
+# separately and are never reconciled behind your back.  Aiming an emotion at a
+# claim rather than at a person is how you take a position on it: doubt and hope
+# are their own stances, and feeling anything else about something is a way of
+# believing it happened.  Confidence is read off the balance, so a claim can be
+# believed and denied at once, and the contradictions it holds are part of the
+# answer.
+#
+# The interesting one is `denial`.  It does not delete the claim: it marks it
+# suppressed, which stops the contradiction costing tension -- and a suppressed
+# memory goes on ruminating at full strength anyway.  The mind drops the fact and
+# the body keeps the feeling.  Watch Alice's fear stay exactly where it was while
+# her confidence in what happened collapses.
+#
+# `acceptance` finally collapses the stances into one, and charges grief for it.
+
+alice = agent
+
+fear alice 0.6
+remember alice "the door was open"
+grief alice "the door was open" 0.5
+
+recall alice "the door was open"
+
+# She decides it did not happen.
+denial alice "the door was open"
+tick 3
+recall alice "the door was open"
+observe alice
+
+# And then is not sure that it did not happen.
+doubt alice "the door was open" 0.6
+hope alice "the door was open" 0.4
+tick 3
+recall alice "the door was open"
+
+# Living with it costs something. So does putting it down.
+acceptance alice "the door was open"
+tick 2
+recall alice "the door was open"
+observe alice

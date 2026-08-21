@@ -1,0 +1,209 @@
+"""Parser for Catharsis.
+
+Grammar, in full::
+
+    program   := line*
+    line      := declaration | utterance | <empty>
+    declaration := NAME '=' 'agent'
+    utterance := NAME argument*
+    argument  := NAME | NUMBER | STRING
+
+Arguments are bound to the slots declared by the utterance's entry in
+:mod:`catharsis.vocabulary`, which is what lets ``pride alice 0.8`` and
+``love alice bob 0.8`` share one signature without ambiguity.
+"""
+
+from __future__ import annotations
+
+from .ast import Arg, Declare, Program, Utter
+from .errors import ParseError, suggest
+from .lexer import Token, tokenize
+from .vocabulary import PARTICLES, RESERVED, VOCABULARY, lookup, resolve
+
+_NAME_KINDS = {"agent", "entity", "group", "word", "event"}
+
+
+def _matches(token: Token, kind: str) -> bool:
+    base = kind.rstrip("?")
+    if base in _NAME_KINDS:
+        return token.kind == "NAME"
+    if base == "text":
+        return token.kind == "STRING"
+    if base == "number":
+        return token.kind == "NUMBER"
+    if base == "value":
+        return token.kind in ("STRING", "NUMBER")
+    return False  # pragma: no cover - unknown slot kind is a table bug
+
+
+def _describe(kind: str) -> str:
+    base = kind.rstrip("?")
+    return {
+        "agent": "an agent name",
+        "entity": "an agent or group name",
+        "group": "a group name",
+        "word": "a bare word",
+        "event": "an event word",
+        "text": 'a "quoted claim"',
+        "number": "a number",
+        "value": 'a number or a "quoted string"',
+    }.get(base, base)
+
+
+class Parser:
+    def __init__(self, source: str, filename: str = "<source>") -> None:
+        self.source = source
+        self.filename = filename
+        self.tokens = tokenize(source, filename)
+        self.pos = 0
+
+    # -- token helpers ----------------------------------------------------
+    @property
+    def current(self) -> Token:
+        return self.tokens[self.pos]
+
+    def advance(self) -> Token:
+        token = self.tokens[self.pos]
+        if token.kind != "EOF":
+            self.pos += 1
+        return token
+
+    def error(self, message: str, token: Token, hint: str | None = None) -> ParseError:
+        return ParseError(
+            message,
+            line=token.line,
+            column=token.column,
+            text=token.text,
+            filename=self.filename,
+            hint=hint,
+        )
+
+    # -- entry point ------------------------------------------------------
+    def parse(self) -> Program:
+        program = Program(filename=self.filename, source=self.source)
+        while self.current.kind != "EOF":
+            if self.current.kind == "NEWLINE":
+                self.advance()
+                continue
+            program.statements.append(self.parse_line())
+        return program
+
+    def parse_line(self):
+        head = self.current
+        if head.kind != "NAME":
+            raise self.error(
+                f"a line must start with a word, found {self._token_desc(head)}",
+                head,
+                hint="every Catharsis line is either 'name = agent' or 'verb args...'",
+            )
+        if self.tokens[self.pos + 1].kind == "EQUALS":
+            return self.parse_declaration()
+        return self.parse_utterance()
+
+    def parse_declaration(self) -> Declare:
+        name_token = self.advance()
+        self.advance()  # '='
+        kind_token = self.current
+        if kind_token.kind != "NAME" or kind_token.value != "agent":
+            raise self.error(
+                "only 'agent' can be declared",
+                kind_token,
+                hint="write 'alice = agent'; groups are declared with 'group name'",
+            )
+        self.advance()
+        name = str(name_token.value)
+        if name in RESERVED or name in VOCABULARY:
+            raise self.error(
+                f"'{name}' is a reserved word and cannot name an agent",
+                name_token,
+                hint="pick a name that is not an emotion, an event or a particle",
+            )
+        self.expect_end()
+        return Declare(name_token.line, name_token.column, name_token.text, name)
+
+    def parse_utterance(self) -> Utter:
+        verb_token = self.advance()
+        spelling = str(verb_token.value)
+        canonical = resolve(spelling)
+        spec = lookup(spelling)
+        if spec is None:
+            raise self.error(
+                f"unknown utterance '{spelling}'",
+                verb_token,
+                hint=suggest(spelling, VOCABULARY)
+                or "run 'catharsis words' to list everything the language can say",
+            )
+
+        raw: list[Token] = []
+        while self.current.kind in ("NAME", "NUMBER", "STRING"):
+            token = self.advance()
+            if token.kind == "NAME" and token.value in PARTICLES:
+                continue  # particles are punctuation made of letters
+            raw.append(token)
+
+        slots: list[Arg | None] = []
+        index = 0
+        for param in spec.params:
+            optional = param.endswith("?")
+            if index < len(raw) and _matches(raw[index], param):
+                token = raw[index]
+                slots.append(Arg(param.rstrip("?"), token.value, token.line, token.column))
+                index += 1
+            elif optional:
+                slots.append(None)
+            else:
+                token = raw[index] if index < len(raw) else verb_token
+                got = self._token_desc(token) if index < len(raw) else "nothing"
+                raise self.error(
+                    f"'{canonical}' expects {_describe(param)} here, found {got}",
+                    token,
+                    hint=self._usage(canonical, spec.params),
+                )
+        if index < len(raw):
+            extra = raw[index]
+            raise self.error(
+                f"'{canonical}' does not take another argument",
+                extra,
+                hint=self._usage(canonical, spec.params),
+            )
+        self.expect_end()
+        return Utter(verb_token.line, verb_token.column, verb_token.text, canonical, tuple(slots), spelling)
+
+    def expect_end(self) -> None:
+        token = self.current
+        if token.kind in ("NEWLINE", "EOF"):
+            if token.kind == "NEWLINE":
+                self.advance()
+            return
+        raise self.error(  # pragma: no cover - unreachable while args consume greedily
+            f"unexpected {self._token_desc(token)} at end of line",
+            token,
+        )
+
+    @staticmethod
+    def _usage(name: str, params: tuple[str, ...]) -> str:
+        parts = []
+        for param in params:
+            base = param.rstrip("?")
+            rendered = {"text": '"claim"', "value": "value"}.get(base, base)
+            parts.append(f"[{rendered}]" if param.endswith("?") else f"<{rendered}>")
+        return "usage: " + " ".join([name, *parts])
+
+    @staticmethod
+    def _token_desc(token: Token) -> str:
+        if token.kind == "NAME":
+            return f"the word '{token.value}'"
+        if token.kind == "NUMBER":
+            return f"the number {token.value:g}"
+        if token.kind == "STRING":
+            return "a quoted claim"
+        if token.kind == "EQUALS":
+            return "'='"
+        if token.kind == "NEWLINE":
+            return "end of line"
+        return "end of file"
+
+
+def parse(source: str, filename: str = "<source>") -> Program:
+    """Parse Catharsis source into a :class:`~catharsis.ast.Program`."""
+    return Parser(source, filename).parse()

@@ -1,0 +1,37 @@
+# Reputation
+#
+# There is no reputation table in the Catharsis runtime.  There is no score
+# attached to Alice anywhere.  What there is:
+#
+#   * witnessing, which puts an observer into the victim's shoes at 55% strength
+#   * confiding, which hands a *memory* -- claim and all -- to somebody else,
+#     believed in proportion to how much they trust the teller
+#   * contagion, which leaks feeling along every edge of the graph in proportion
+#     to trust, with warnings travelling further than praise
+#
+# Reputation is what those three do together.  Watch it reach Diana, who never
+# met Alice and never saw anything: it arrives through Charlie, as a memory with
+# a source and a confidence, not as a number.
+
+alice = agent
+bob = agent
+charlie = agent
+diana = agent
+
+trust bob alice 0.8
+love bob alice 0.5
+
+# Charlie and Diana are a going concern of their own.
+trust charlie diana 0.7
+trust diana charlie 0.7
+love diana charlie 0.4
+
+betray alice bob
+witness charlie alice betraying bob
+
+tick 10
+
+observe charlie
+observe diana
+
+recall diana "alice betrayed bob"

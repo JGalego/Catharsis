@@ -1,0 +1,41 @@
+# Multi-agent coordination
+#
+# Three people, one shared goal, and nobody in charge.
+#
+# `contribute` is scored like every other action: its pull is the mean trust an
+# agent feels toward the rest of its group, plus hope and pride; what holds it
+# back is the mean doubt, plus fear, sadness and shame.  So the group makes
+# progress at a rate that *is* the state of its relationships -- there is no
+# coordination protocol and no task assignment anywhere.
+#
+# Charlie doubts Alice, and Bob is frightened.  The question the program asks is
+# whether a group can still act when its trust graph is broken in two places.
+#
+# Compare with `coordination_broken.catharsis`, which is the same program with
+# the doubt turned up, and never reaches its goal.
+
+group rescue_team
+
+alice = agent
+bob = agent
+charlie = agent
+
+join alice rescue_team
+join bob rescue_team
+join charlie rescue_team
+
+goal rescue_team "rescue"
+
+trust alice bob 0.7
+trust bob charlie 0.7
+trust charlie alice 0.3
+doubt charlie alice 0.5
+
+fear bob 0.5
+hope alice 0.6
+pride charlie 0.5
+
+tick 20
+
+observe rescue_team
+observe bob

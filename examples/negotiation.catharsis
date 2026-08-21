@@ -1,0 +1,37 @@
+# Negotiation
+#
+# Two agents want incompatible things.  There is no negotiation algorithm
+# anywhere in the runtime -- no offer generator, no concession schedule, no
+# "meet in the middle" rule.  Each side moves by however much it can currently
+# bear to give up, which is read straight off the emotional field:
+#
+#     yielding = trust + hope + guilt + love + fear
+#     holding  = pride + anger + resentment + doubt + envy
+#
+# So the price they end up at is a fact about their relationship, not about
+# arithmetic.  Alice's pride is what makes her win ground; Bob's fear is what
+# makes him give it.  Change a single line below and the number moves.
+
+alice = agent
+bob = agent
+
+goal alice price 90
+goal bob price 50
+
+trust alice bob 0.5
+fear bob alice 0.45
+hope bob alice 0.5
+pride alice 0.7
+
+propose alice bob
+
+# Bob refuses the opening offer.  Rejection is not a control-flow branch: it
+# deposits anger and doubt in Alice, and pride in Bob, and those change how
+# fast each of them can move for the rest of the bargain.
+reject bob alice
+anger alice bob
+hope bob alice
+
+tick 22
+
+observe
