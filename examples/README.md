@@ -9,7 +9,12 @@ catharsis run examples/<name>.feel            # final state
 catharsis run examples/<name>.feel --trace    # narrate every event as it happens
 catharsis run examples/<name>.feel --json     # machine-readable state
 catharsis run examples/<name>.feel --emoji    # one glyph per emotion
+catharsis visualize examples/<name>.feel      # replay it in a browser, frame by frame
 ```
+
+Every example below is worth watching rather than reading: `visualize` gives you the whole
+run with transport controls, so the propagation in §2 and the coordination cascade in §6
+are visible as they happen instead of only in the final numbers.
 
 ---
 

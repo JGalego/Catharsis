@@ -24,6 +24,7 @@ jobs:
           for program in examples/*.feel; do
             echo "== $program"
             python -m catharsis run "$program" --quiet
+            python -m catharsis visualize "$program" -o /tmp/out.html
           done
 
   lint:

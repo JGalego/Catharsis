@@ -127,6 +127,34 @@ pip install -e .          # optional: puts a `catharsis` command on your PATH
 
 Without installing, `python -m catharsis` works identically from the repository root.
 
+### Watching a program run
+
+```bash
+catharsis visualize examples/society.feel      # writes examples/society.html
+```
+
+![The replay page](docs/visualizer.png)
+
+A Catharsis program is a field simulation, so a single end-state table is a photograph of
+a river. `visualize` writes a standalone HTML file — no dependencies, no network — with a
+frame for **every statement and every tick**, play/stop/step/rewind, a scrubber, the source
+following along, hover tooltips, and click-to-pin details.
+
+The one real design decision is what an edge means. An entity feels up to twenty things
+about another at once, so painting that edge a single colour would throw away exactly what
+the runtime exists to model. Instead each ordered pair gets **three arcs in fixed lanes**:
+
+| Lane | Axes |
+| --- | --- |
+| **Bond** — what pulls toward | love, trust, hope, gratitude, joy, curiosity, pride |
+| **Grievance** — what pushes away | anger, resentment, doubt, fear, jealousy, envy |
+| **Burden** — what weighs | grief, guilt, shame, sadness, loneliness, regret |
+
+So an ambivalent relationship *looks* ambivalent — two thick arcs side by side, a picture no
+net-sentiment score can draw. The lanes never move, so the graph reads without colour at
+all, and the twenty individual axes live in the tooltip and the detail panel where identity
+belongs.
+
 ### Running the interpreter
 
 ```bash
@@ -135,6 +163,7 @@ catharsis run examples/society.feel --trace      # ...and narrate every event as
 catharsis run examples/contradiction.feel --emoji  # ...with one glyph per emotion
 catharsis run examples/reputation.feel --json
 catharsis check examples/negotiation.feel        # parse without running
+catharsis visualize examples/society.feel        # replay it as a graph
 catharsis words                                  # everything the language can say
 ```
 
@@ -165,7 +194,7 @@ and it is a fact about the runtime, not a string.
 ### Running the tests
 
 ```bash
-python -m unittest discover -s tests -v     # 94 tests, no dependencies
+python -m unittest discover -s tests -v     # 114 tests, no dependencies
 ruff check catharsis tests                  # optional: lint
 ruff format --check catharsis tests         # optional: formatting
 ```
@@ -197,6 +226,7 @@ catharsis/
   actions.py     every action an agent can take, as affinity and inhibition vectors
   entity.py      bonds, memories, timelines, alternate histories
   world.py       the tick, and the runtime that hangs off those tables
+  viz.py         the replay page: three-channel projection, transport, tooltips
   lexer.py parser.py ast.py errors.py report.py cli.py
 ```
 

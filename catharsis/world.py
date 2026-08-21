@@ -50,6 +50,19 @@ TEMPERAMENT_RATE = 0.08
 MAX_CONCESSION = 0.40
 
 
+def source_line(node) -> str:
+    """The statement as the author wrote it, minus any trailing comment."""
+    text = getattr(node, "text", "") or ""
+    quoted = False
+    for index, char in enumerate(text):
+        if char == '"':
+            quoted = not quoted
+        elif char == "#" and not quoted:
+            text = text[:index]
+            break
+    return " ".join(text.split()) or "(nothing)"
+
+
 @dataclass
 class Event:
     tick: int
@@ -71,7 +84,7 @@ class Decision:
 class World:
     """Everything that exists, and the rules by which it changes."""
 
-    def __init__(self, sink=None, trace: bool = False, emoji: bool = False) -> None:
+    def __init__(self, sink=None, trace: bool = False, emoji: bool = False, record: bool = False) -> None:
         self.agents: dict[str, Agent] = {}
         self.groups: dict[str, Group] = {}
         self.negotiations: list[Negotiation] = []
@@ -81,6 +94,12 @@ class World:
         self.trace = trace
         #: Render state with one glyph per emotion instead of the word.
         self.emoji = emoji
+        #: When recording, every statement and every tick leaves a full snapshot
+        #: behind, so the whole run can be replayed rather than only summarised.
+        self.recording = record
+        self.frames: list[dict] = []
+        self._logged = 0
+        self._line = 0
         self.filename = "<source>"
 
     # ------------------------------------------------------------------
@@ -125,14 +144,40 @@ class World:
     # ------------------------------------------------------------------
     def run(self, program: Program) -> World:
         self.filename = program.filename
+        self.capture("(before anything happens)", "start")
         for statement in program.statements:
             if isinstance(statement, Declare):
                 self.declare(statement)
+                self.capture(source_line(statement), "utterance")
             else:
                 self.utter(statement)
+                # A tick has already captured a frame for each step it ran.
+                if VOCABULARY[statement.verb].effect != "tick":
+                    self.capture(source_line(statement), "utterance")
         return self
 
+    def capture(self, label: str, kind: str) -> None:
+        """Freeze the whole world, labelled with whatever just happened."""
+        if not self.recording:
+            return
+        from .report import to_dict
+
+        events = [event.text for event in self.log[self._logged :]]
+        self._logged = len(self.log)
+        self.frames.append(
+            {
+                "index": len(self.frames),
+                "tick": self.tick_count,
+                "line": self._line,
+                "label": label,
+                "kind": kind,
+                "events": events,
+                "state": to_dict(self),
+            }
+        )
+
     def declare(self, node: Declare) -> Agent:
+        self._line = node.line
         return self.bring_into_being(node.name, node)
 
     def bring_into_being(self, name: str, node) -> Agent:
@@ -151,6 +196,7 @@ class World:
             self.bring_into_being(str(name), node)
 
     def utter(self, node: Utter) -> None:
+        self._line = node.line
         spec = VOCABULARY[node.verb]
         a, b = self._principals(spec, node)
         scale = 1.0
@@ -715,6 +761,7 @@ class World:
         for agent in self.agents.values():
             agent.rest()
             agent.refresh_trust_ceilings()
+        self.capture(f"tick {self.tick_count}", "tick")
 
     def _apply_deltas(self, deltas: dict[tuple[str, str, str], float]) -> None:
         for (holder, target, emotion), delta in deltas.items():

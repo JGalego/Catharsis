@@ -45,6 +45,21 @@ def _cmd_run(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_visualize(args: argparse.Namespace) -> int:
+    from .viz import build_payload, render_html
+
+    source, name = _read(args.program)
+    program = parse(source, name)
+    world = World(record=True)
+    world.run(program)
+    for _ in range(args.ticks):
+        world.step()
+    out = Path(args.output) if args.output else Path(args.program).with_suffix(".html")
+    out.write_text(render_html(build_payload(world, Path(name).stem, source)), encoding="utf-8")
+    print(f"{out}  ({len(world.frames)} moments, {len(world.agents)} entities)")
+    return 0
+
+
 def _cmd_check(args: argparse.Namespace) -> int:
     source, name = _read(args.program)
     program = parse(source, name)
@@ -88,6 +103,12 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--quiet", action="store_true", help="suppress the closing state report")
     run.add_argument("--emoji", action="store_true", help="render state with one glyph per emotion")
     run.set_defaults(func=_cmd_run)
+
+    visualize = subparsers.add_parser("visualize", help="replay a program as a graph you can scrub through")
+    visualize.add_argument("program")
+    visualize.add_argument("-o", "--output", help="where to write the HTML (default: alongside the program)")
+    visualize.add_argument("--ticks", type=int, default=0, help="extra ticks to run after the program ends")
+    visualize.set_defaults(func=_cmd_visualize)
 
     check = subparsers.add_parser("check", help="parse a program without running it")
     check.add_argument("program")
