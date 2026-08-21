@@ -8,7 +8,7 @@ the test.
 
 import unittest
 
-from catharsis import run_source
+from catharsis import run_source, to_dict
 from catharsis.errors import CatharsisRuntimeError
 
 
@@ -37,6 +37,38 @@ class TestHistoryOverStatelessness(unittest.TestCase):
             remembered.agents["b"].feels("resentment", "a"),
             bare.agents["b"].feels("resentment", "a"),
         )
+
+
+class TestDeclaration(unittest.TestCase):
+    """`alice = agent`, `agent alice`, and `👤 alice` are one thing said three ways."""
+
+    LONG = "alice = agent\nbob = agent\ncarol = agent\n"
+    SHORT = "agent alice bob carol\n"
+    GLYPH = "👤 alice bob carol\n"
+    BODY = "love alice bob 0.9\njealousy carol alice 0.7\nbetray alice bob\ntick 8\n"
+
+    def test_every_form_builds_the_same_world(self):
+        worlds = [to_dict(run_source(head + self.BODY)) for head in (self.LONG, self.SHORT, self.GLYPH)]
+        self.assertEqual(worlds[0], worlds[1])
+        self.assertEqual(worlds[1], worlds[2])
+
+    def test_declaration_order_is_preserved(self):
+        world = run_source(self.SHORT)
+        self.assertEqual(list(world.agents), ["alice", "bob", "carol"])
+
+    def test_declaring_the_same_name_twice_is_an_error(self):
+        with self.assertRaises(CatharsisRuntimeError) as caught:
+            run_source("agent alice bob\nagent bob\n")
+        self.assertIn("already an agent", str(caught.exception))
+
+    def test_an_agent_cannot_collide_with_a_group(self):
+        with self.assertRaises(CatharsisRuntimeError) as caught:
+            run_source("group crew\nagent crew\n")
+        self.assertIn("already a group", str(caught.exception))
+
+    def test_the_forms_can_be_mixed(self):
+        world = run_source("agent alice bob\ncarol = agent\n👤 dave\n")
+        self.assertEqual(list(world.agents), ["alice", "bob", "carol", "dave"])
 
 
 class TestForgiveness(unittest.TestCase):

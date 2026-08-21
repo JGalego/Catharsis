@@ -292,6 +292,13 @@ def _base_table() -> dict[str, Utterance]:
         effect="trait",
     )
 
+    table["agent"] = Utterance(
+        name="agent",
+        params=("word+",),
+        doc="brings entities into existence; takes as many names as you like",
+        effect="agent",
+    )
+
     table["group"] = Utterance(
         name="group",
         params=("word",),
@@ -409,8 +416,10 @@ EVENT_GLYPHS: dict[str, str] = {
 #: Every glyph the language answers to, mapped to what it means.
 ALL_GLYPHS: dict[str, str] = {**GLYPHS, **EVENT_GLYPHS}
 
-#: ``alice = 👤`` is the same declaration as ``alice = agent``.
+#: ``👤 alice bob carol`` and ``alice = 👤`` both declare.
 AGENT_GLYPH = "👤"
+EVENT_GLYPHS["agent"] = AGENT_GLYPH
+ALL_GLYPHS["agent"] = AGENT_GLYPH
 
 ALIASES.update({glyph: name for name, glyph in ALL_GLYPHS.items()})
 

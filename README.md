@@ -19,8 +19,7 @@ feeling travels along relationships as hearsay, and every agent takes whichever 
 the field is currently pushing it hardest toward.
 
 ```
-alice = agent
-bob = agent
+agent alice bob
 
 love alice bob
 betray alice bob
@@ -33,7 +32,7 @@ forgive bob alice
 
 Nothing above sets a flag. `betray` deposits anger, resentment, doubt and grief on one
 edge and guilt on the other, and lays down a memory on both sides. Everything that
-follows is the field working — here is what those ten lines actually do:
+follows is the field working — here is what that actually does:
 
 ```console
 $ catharsis run intro.feel --trace --quiet
@@ -61,14 +60,13 @@ not a second language — it resolves through the same alias table as `lonely` �
 asserts that: the two spellings of one program produce byte-identical worlds.
 
 ```
-alice = 👤          ❤️  love     🤝 trust    🕊️  hope     😄 joy       🦁 pride
-bob   = 👤          🔍 curious  🙏 grateful 😠 anger    😨 fear      🤔 doubt
-                    😢 sadness  🖤 grief    🙈 shame    😞 guilt     😒 envy
-❤️ alice bob         💚 jealousy 🧍 lonely   😲 surprise 🛤️  regret    🧊 resentment
-💔 alice bob         💔 betray   🙇 apology  🤲 forgive  👁️  witness   🎁 gift
-🖤 bob               🧠 remember 💭 recall   🙅 deny     🧘 accept    🔀 choice
-🤔 bob alice         ⏱️  tick     👤 agent
-⏱️ 8
+👤 alice bob        ❤️  love     🤝 trust    🕊️  hope     😄 joy       🦁 pride
+                    🔍 curious  🙏 grateful 😠 anger    😨 fear      🤔 doubt
+❤️ alice bob         😢 sadness  🖤 grief    🙈 shame    😞 guilt     😒 envy
+💔 alice bob         💚 jealousy 🧍 lonely   😲 surprise 🛤️  regret    🧊 resentment
+🖤 bob               💔 betray   🙇 apology  🤲 forgive  👁️  witness   🎁 gift
+🤔 bob alice         🧠 remember 💭 recall   🙅 deny     🧘 accept    🔀 choice
+⏱️ 8                 ⏱️  tick     👤 agent
 🤲 bob alice
 ```
 
@@ -167,7 +165,7 @@ and it is a fact about the runtime, not a string.
 ### Running the tests
 
 ```bash
-python -m unittest discover -s tests -v     # 86 tests, no dependencies
+python -m unittest discover -s tests -v     # 94 tests, no dependencies
 ruff check catharsis tests                  # optional: lint
 ruff format --check catharsis tests         # optional: formatting
 ```
@@ -210,6 +208,10 @@ selection — reads the same twenty axes through the same machinery.
 One tick, in full: decay → temperament → coupling → spill onto self-regard → rumination →
 unmet needs → contagion → regret drift → open bargains → every agent scores every action
 and takes the strongest → shared goals check themselves.
+
+Entities are declared by an ordinary utterance, so one line introduces a whole cast:
+`agent alice bob carol`, or `👤 alice bob carol`. `alice = agent` is the same thing said
+about one entity, kept because it reads better on its own.
 
 `catharsis words` prints the whole vocabulary: twenty emotions, which take either an entity
 (`fear diana charlie`), nobody but themselves (`pride charlie`), or a claim

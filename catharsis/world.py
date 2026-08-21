@@ -133,13 +133,22 @@ class World:
         return self
 
     def declare(self, node: Declare) -> Agent:
-        if node.name in self.agents:
-            raise self.fail(node, f"'{node.name}' is already an agent", "each agent is declared once")
-        agent = Agent(node.name, born=self.tick_count)
-        agent.bond(node.name, at=self.tick_count)  # everyone has a relationship with themselves
-        self.agents[node.name] = agent
-        self.record("declare", f"{node.name} exists")
+        return self.bring_into_being(node.name, node)
+
+    def bring_into_being(self, name: str, node) -> Agent:
+        if name in self.agents:
+            raise self.fail(node, f"'{name}' is already an agent", "each agent is declared once")
+        if name in self.groups:
+            raise self.fail(node, f"'{name}' is already a group")
+        agent = Agent(name, born=self.tick_count)
+        agent.bond(name, at=self.tick_count)  # everyone has a relationship with themselves
+        self.agents[name] = agent
+        self.record("declare", f"{name} exists")
         return agent
+
+    def _effect_agent(self, node: Utter, a, b) -> None:
+        for name in node.slot(0, ()):
+            self.bring_into_being(str(name), node)
 
     def utter(self, node: Utter) -> None:
         spec = VOCABULARY[node.verb]

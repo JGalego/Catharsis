@@ -16,9 +16,7 @@
 
 group rescue_team
 
-alice = agent
-bob = agent
-charlie = agent
+agent alice bob charlie
 
 join alice rescue_team
 join bob rescue_team

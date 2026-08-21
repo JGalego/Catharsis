@@ -13,10 +13,7 @@
 # met Alice and never saw anything: it arrives through Charlie, as a memory with
 # a source and a confidence, not as a number.
 
-alice = agent
-bob = agent
-charlie = agent
-diana = agent
+agent alice bob charlie diana
 
 trust bob alice 0.8
 love bob alice 0.5

@@ -26,6 +26,24 @@ class TestParsing(unittest.TestCase):
         self.assertIsInstance(statement, Declare)
         self.assertEqual(statement.name, "alice")
 
+    def test_agent_declares_a_whole_cast(self):
+        program = parse("agent alice bob carol\n")
+        self.assertEqual(len(program.statements), 1)
+        self.assertEqual(program.statements[0].verb, "agent")
+        self.assertEqual(program.statements[0].slot(0), ("alice", "bob", "carol"))
+
+    def test_a_repeating_slot_needs_at_least_one(self):
+        with self.assertRaises(ParseError) as caught:
+            parse("agent\n")
+        message = str(caught.exception)
+        self.assertIn("one or more bare words", message)
+        self.assertIn("usage: agent <word> [word ...]", message)
+
+    def test_a_reserved_word_cannot_be_declared_in_a_list(self):
+        with self.assertRaises(ParseError) as caught:
+            parse("agent alice love\n")
+        self.assertIn("'love' is a reserved word", str(caught.exception))
+
     def test_emotion_shapes(self):
         program = parse("pride alice 0.8\nlove alice bob 0.9\nfear bob\n")
         self.assertEqual([s.slot(0) for s in program.statements], ["alice", "alice", "bob"])

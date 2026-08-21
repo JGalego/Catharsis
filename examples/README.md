@@ -299,9 +299,7 @@ out whichever side loses as grief.
 A love triangle, written entirely in glyphs.
 
 ```
-alice = 👤
-bob   = 👤
-carol = 👤
+👤 alice bob carol
 
 ❤️ alice bob 0.9
 ❤️ bob alice 0.7

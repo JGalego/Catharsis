@@ -8,6 +8,10 @@ Grammar, in full::
     utterance := NAME argument*
     argument  := NAME | NUMBER | STRING
 
+``agent alice bob carol`` is an ordinary utterance that happens to declare, so
+one line can introduce a whole cast; ``alice = agent`` is the same thing for a
+single entity, kept because it reads better on its own.
+
 Arguments are bound to the slots declared by the utterance's entry in
 :mod:`catharsis.vocabulary`, which is what lets ``pride alice 0.8`` and
 ``love alice bob 0.8`` share one signature without ambiguity.
@@ -24,7 +28,7 @@ _NAME_KINDS = {"agent", "entity", "group", "word", "event"}
 
 
 def _matches(token: Token, kind: str) -> bool:
-    base = kind.rstrip("?")
+    base = kind.rstrip("?+")
     if base in _NAME_KINDS:
         return token.kind == "NAME"
     if base == "text":
@@ -37,8 +41,9 @@ def _matches(token: Token, kind: str) -> bool:
 
 
 def _describe(kind: str) -> str:
-    base = kind.rstrip("?")
-    return {
+    base = kind.rstrip("?+")
+    plural = kind.endswith("+")
+    described = {
         "agent": "an agent name",
         "entity": "an agent or group name",
         "group": "a group name",
@@ -48,6 +53,14 @@ def _describe(kind: str) -> str:
         "number": "a number",
         "value": 'a number or a "quoted string"',
     }.get(base, base)
+    if not plural:
+        return described
+    return {
+        "agent": "one or more agent names",
+        "word": "one or more bare words",
+        "text": 'one or more "quoted claims"',
+        "number": "one or more numbers",
+    }.get(base, f"one or more {described}")
 
 
 class Parser:
@@ -113,12 +126,7 @@ class Parser:
             )
         self.advance()
         name = str(name_token.value)
-        if name in RESERVED or name in VOCABULARY or name in ALIASES:
-            raise self.error(
-                f"'{name}' is a reserved word and cannot name an agent",
-                name_token,
-                hint="pick a name that is not an emotion, an event or a particle",
-            )
+        self._check_agent_name(name, name_token)
         self.expect_end()
         return Declare(name_token.line, name_token.column, name_token.text, name)
 
@@ -146,6 +154,28 @@ class Parser:
         index = 0
         for param in spec.params:
             optional = param.endswith("?")
+            if param.endswith("+"):
+                # A repeating slot swallows every remaining argument that fits,
+                # and binds them as one tuple.  This is what lets `agent` declare
+                # a whole cast on one line without the grammar growing a list
+                # syntax it would need nowhere else.
+                taken = []
+                while index < len(raw) and _matches(raw[index], param):
+                    taken.append(raw[index])
+                    index += 1
+                if not taken:
+                    token = raw[index] if index < len(raw) else verb_token
+                    got = self._token_desc(token) if index < len(raw) else "nothing"
+                    raise self.error(
+                        f"'{canonical}' expects {_describe(param)} here, found {got}",
+                        token,
+                        hint=self._usage(canonical, spec.params),
+                    )
+                first = taken[0]
+                slots.append(
+                    Arg(param.rstrip("+"), tuple(str(t.value) for t in taken), first.line, first.column)
+                )
+                continue
             if index < len(raw) and _matches(raw[index], param):
                 token = raw[index]
                 slots.append(Arg(param.rstrip("?"), token.value, token.line, token.column))
@@ -167,8 +197,19 @@ class Parser:
                 extra,
                 hint=self._usage(canonical, spec.params),
             )
+        if canonical == "agent":
+            for name in slots[0].value:
+                self._check_agent_name(name, verb_token)
         self.expect_end()
         return Utter(verb_token.line, verb_token.column, verb_token.text, canonical, tuple(slots), spelling)
+
+    def _check_agent_name(self, name: str, token: Token) -> None:
+        if name in RESERVED or name in VOCABULARY or name in ALIASES:
+            raise self.error(
+                f"'{name}' is a reserved word and cannot name an agent",
+                token,
+                hint="pick a name that is not an emotion, an event or a particle",
+            )
 
     def expect_end(self) -> None:
         token = self.current
@@ -183,12 +224,7 @@ class Parser:
 
     @staticmethod
     def _usage(name: str, params: tuple[str, ...]) -> str:
-        parts = []
-        for param in params:
-            base = param.rstrip("?")
-            rendered = {"text": '"claim"', "value": "value"}.get(base, base)
-            parts.append(f"[{rendered}]" if param.endswith("?") else f"<{rendered}>")
-        return "usage: " + " ".join([name, *parts])
+        return "usage: " + signature(name, params)
 
     @staticmethod
     def _token_desc(token: Token) -> str:
@@ -203,6 +239,19 @@ class Parser:
         if token.kind == "NEWLINE":
             return "end of line"
         return "end of file"
+
+
+def signature(name: str, params: tuple[str, ...]) -> str:
+    """Render an utterance's shape, e.g. ``agent <word> [word ...]``."""
+    parts = []
+    for param in params:
+        base = param.rstrip("?+")
+        rendered = {"text": '"claim"', "value": "value"}.get(base, base)
+        if param.endswith("+"):
+            parts.append(f"<{rendered}> [{rendered} ...]")
+        else:
+            parts.append(f"[{rendered}]" if param.endswith("?") else f"<{rendered}>")
+    return " ".join([name, *parts])
 
 
 def parse(source: str, filename: str = "<source>") -> Program:

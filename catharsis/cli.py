@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 
 from .errors import CatharsisError, SourceError
-from .parser import parse
+from .parser import parse, signature
 from .report import render_world, to_dict
 from .vocabulary import ALIASES, ALL_GLYPHS, VOCABULARY
 from .world import World
@@ -64,11 +64,10 @@ def _cmd_words(args: argparse.Namespace) -> int:
             spec = VOCABULARY[name]
             if spec.category != category:
                 continue
-            params = " ".join(f"[{p.rstrip('?')}]" if p.endswith("?") else f"<{p}>" for p in spec.params)
             aliases = reverse.get(name)
             suffix = f"   (also: {', '.join(sorted(aliases))})" if aliases else ""
             glyph = ALL_GLYPHS.get(name, " ")
-            print(f"  {glyph}  {name} {params}")
+            print(f"  {glyph}  {signature(name, spec.params)}")
             print(f"      {spec.doc}{suffix}")
         print()
     return 0
