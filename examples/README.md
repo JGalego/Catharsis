@@ -500,3 +500,74 @@ the full account and the one primitive that would close it. Every claim in it is
 `TestCounterMachine` in `tests/test_semantics.py`, each in a world of its own: an agent with
 an unsatisfiable appetite competes with anyone holding anything, so these casts must not
 share a stage.
+
+---
+
+## 14. Sorting integers out of envy — [`sort.feel`](sort.feel)
+
+**Rank is how many people you have made feel small.**
+
+Catharsis has no comparison operator, no swap, no index and no loop. It does have status,
+and status is a total order the runtime already computes for its own reasons. Two lines of
+runtime do the whole job, and neither was put there for sorting:
+
+```python
+# world.py, _needs -- runs for every pair, every tick
+if theirs > mine:                                             # <- this is `>`
+    self._add(deltas, agent.name, other, "envy", 0.07 * deficit)
+
+# field.py, SPILL -- and _spill sums EVERY outgoing bond into one delta key
+("envy", "shame", 0.02)
+```
+
+Tick 1 puts an envy edge from each agent to everyone above it. Tick 2 sums those edges into
+self-shame. Because `_add` accumulates into a dict before `_apply_deltas` calls
+`Bond.add` once, the sum is a single saturating deposit and is therefore exactly linear —
+there is no accumulated saturation error at all.
+
+```
+n5   shame 0.007896   envy out-degree 6   worth  5
+n2   shame 0.007896   envy out-degree 6   worth  5
+n7   shame 0.006580   envy out-degree 5   worth 17
+n1   shame 0.005264   envy out-degree 4   worth 23
+n8   shame 0.003948   envy out-degree 3   worth 34
+n4   shame 0.002632   envy out-degree 2   worth 42
+n6   shame 0.001316   envy out-degree 1   worth 68
+n3   shame 0.000000   envy out-degree 0   worth 91
+```
+
+Every gap is exactly `0.02 × 0.07 × (1 − DECAY["envy"])` = 0.001316. The two fives are
+bit-identical: equal values cannot envy each other, so ties survive as ties rather than
+being broken arbitrarily.
+
+| | |
+| --- | --- |
+| Depth | **2 ticks, regardless of n** — the comparisons are field operations, not actions, so they are not serialised behind one-action-per-tick |
+| Work | O(n²) — one tick touches every edge |
+| Actions | **zero** — nothing is taken, nothing moves, the input is never touched |
+
+O(1) depth with n² processors is enumeration sort (Muller & Preparata, 1975), and Catharsis
+happens to have exactly n² processors because it has exactly n² edges. The quadratic does
+not disappear; it moves off the time axis and onto the space axis, which is why the
+acquaintance block is the longest part of the file. **In a language where the graph is the
+memory, an all-pairs comparison is paid for in relationships rather than in time.**
+
+Beating O(n²) work needs a sparse comparison network, which needs values routed between
+fixed positions between rounds — and routing is exactly what
+[machine.feel](machine.feel) shows this language cannot do, because every transfer leaves a
+back-edge of grievance. The same missing distinction blocks both results.
+
+**Three preconditions, each broken in turn by a test.** `risk worth 0.9` puts the value
+above `TAKEABLE_RISK` so `compete` cannot fire, while `_needs` — which does not consult
+`risk` — still forms the envy. That is *envy at what cannot be taken*, and without it the
+agents eat their own input on tick 1. The `need` must exceed every value, or an agent with
+no deficit is skipped by `_needs` entirely and ties with the true maximum: sorting
+`[5, 50, 500]` with `need 100` returns `[5, 500, 50]`. And `tick 2` is one tick to compare
+and one to count — fewer does not finish, and more is not more accurate. The order survives
+to about tick 18 and then breaks, because `_needs` also deposits sadness every tick and
+eventually `withdraw` clears the action threshold. **The answer has a window**, after which
+the agents are reacting to how the comparison made them feel.
+
+The sort is exact up to about n = 760, where `0.001316 × corank` reaches the clamp at 1.0
+and adjacent ranks stop being distinguishable. `tests/test_sort.py` checks all of it,
+including ties, duplicates, negatives, and the shipped example's exact output.

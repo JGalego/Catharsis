@@ -243,7 +243,7 @@ being able to act together at all.
 ### Running the tests
 
 ```bash
-python -m unittest discover -s tests -v     # 161 tests, no dependencies
+python -m unittest discover -s tests -v     # 175 tests, no dependencies
 ruff check catharsis tests                  # optional: lint
 ruff format --check catharsis tests         # optional: formatting
 ```
@@ -268,6 +268,7 @@ Every example is a runnable program with its reasoning in the file itself, and
 | [emoji.feel](examples/emoji.feel) | A love triangle written entirely in glyphs, with the state rendered back the same way. Carol is told nothing about what to do with her jealousy; she wedges herself into the couple anyway. |
 | [contradiction.feel](examples/contradiction.feel) | Love and anger, trust and doubt, hope and fear, all held at once and never collapsed. Action pressure is divided by `1 + tension`, so ambivalence looks like paralysis without anything in the runtime knowing about ambivalence. |
 | [romeo.feel](examples/romeo.feel) | **A negative result, kept.** Strogatz's 1988 love-affair model, run five ways. His four regimes do not appear: three of the five setups come out *bit-identical*, because a temperament lives on the self-loop and `_spill` runs one way only. Catharsis has one attractor for a couple, and `catharsis spectrum` says so before the file is run. |
+| [sort.feel](examples/sort.feel) | **An actual algorithm.** Sorting integers in two ticks with no comparison operator, no swap, no index, no loop and no actions at all. `_needs` deposits envy on `i -> j` exactly when `v_j > v_i`; `SPILL`'s `envy -> shame` sums those edges into self-regard. **Rank is how many people you have made feel small.** O(1) depth, O(n²) work — enumeration sort, on a machine that happens to have n² edges. |
 | [machine.feel](examples/machine.feel) | Whether the language is Turing-complete. `settle` runs until the field goes quiet, which makes an exact unbounded register whose *duration* is a function of the data. Where it stops, and why, is the file's real subject. |
 
 ## How it works
