@@ -41,6 +41,26 @@ jobs:
           assert payload["bifurcation"], "the phase page has no bifurcation"
           PY
 
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install coverage
+      - name: Measure coverage
+        # fail_under = 100 lives in pyproject.toml, so this step is the gate.
+        run: |
+          python -m coverage run -m unittest discover -s tests
+          python -m coverage report
+          python -m coverage xml
+      - uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage.xml
+          fail_ci_if_error: true
+
   lint:
     runs-on: ubuntu-latest
     steps:

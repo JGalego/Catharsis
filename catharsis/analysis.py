@@ -31,6 +31,7 @@ from __future__ import annotations
 import cmath
 from dataclasses import dataclass
 from dataclasses import field as dc_field
+from functools import cache
 
 from .field import COUPLING, DECAY, EMOTIONS
 
@@ -232,13 +233,23 @@ def feasible_growth(matrix: Matrix, iterations: int = 5000) -> tuple[float, list
     return growth, vector
 
 
+@cache
 def spectrum(axes: tuple[str, ...] = EMOTIONS) -> Spectrum:
+    """The eigen-picture of one subsystem.
+
+    Cached: the field constants do not change at runtime, so this is a pure
+    function of ``axes`` -- and it is not cheap, since the twenty-axis case runs
+    3000 QR iterations.  `catharsis spectrum -o` asks for the whole field twice,
+    once for the printed verdict and once inside the page.  Callers read the
+    result and never mutate it.
+    """
     matrix = linear_operator(axes)
     growth, mode = dominant_mode(matrix)
     reachable, reachable_mode = feasible_growth(matrix)
     return Spectrum(tuple(axes), eigenvalues(matrix), growth, mode, reachable, reachable_mode)
 
 
+@cache
 def drivers(axes: tuple[str, ...] = EMOTIONS, limit: int = 6) -> list[tuple[float, str, str, float]]:
     """Which couplings the instability is made of.
 
@@ -321,7 +332,11 @@ def portrait(axes: tuple[str, str], resolution: int = 17, grid: int = 61) -> Por
 
     # eigenvectors give the invariant lines through the origin
     for value in spec.values:
-        if abs(value.imag) > 1e-9:
+        if abs(value.imag) > 1e-9:  # pragma: no cover - see TestNothingOscillates
+            # A complex pair spirals, and a spiral has no invariant line to
+            # draw.  No slice of the actual field reaches this: every pair of
+            # the twenty axes comes out with real eigenvalues, so every slice is
+            # a node or a saddle and none is a centre.
             continue
         lam = value.real
         a, b = matrix[0][0], matrix[0][1]
@@ -436,7 +451,12 @@ def trajectory(world, source: str, target: str, axes: tuple[str, str]) -> list[d
         if not agent:
             continue
         bond = agent["bonds"].get(target)
-        charge = bond["charge"] if bond else {}
+        if not bond:
+            # The edge does not exist yet -- or never does, if the caller named
+            # one that is not there.  Either way there is no point to plot, and
+            # inventing one puts a false line through the origin.
+            continue
+        charge = bond["charge"]
         path.append(
             {
                 "tick": frame["tick"],

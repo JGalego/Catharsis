@@ -71,6 +71,19 @@
 # an outcome here, it is a fixed point that almost every start falls into. The
 # spectrum is the prediction; this file is the confirmation.
 #
+# There is one more regime that cannot appear, and this one is structural rather
+# than a matter of tuning. Strogatz's fourth case is the oscillating cycle: two
+# people who chase and flee for ever. **No two-axis slice of this field has a
+# complex eigenvalue at all** -- every pair of the twenty emotions comes out with
+# real eigenvalues, so every slice is a node or a saddle and none is a centre.
+# There is nowhere in the field for a cycle to live. `TestNothingOscillates` in
+# `tests/test_analysis.py` checks all 190 pairs.
+#
+# Which puts the score at: of Strogatz's four regimes, one appears (mutual
+# amplification), one is blocked by an accident of where temperaments live, one
+# is blocked by the warm loop swallowing it, and one is impossible by
+# construction.
+#
 # Fixing it is an intentional decision about that loop and about a path from
 # self-regard back to a bond — not a nudge to a constant. See the README's
 # "Status" section.

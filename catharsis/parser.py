@@ -217,7 +217,9 @@ class Parser:
             if token.kind == "NEWLINE":
                 self.advance()
             return
-        raise self.error(  # pragma: no cover - unreachable while args consume greedily
+        # Reachable: `love alice = bob` puts an EQUALS here, because `raw` only
+        # ever swallows NAME, NUMBER and STRING.
+        raise self.error(
             f"unexpected {self._token_desc(token)} at end of line",
             token,
         )
@@ -236,9 +238,12 @@ class Parser:
             return "a quoted claim"
         if token.kind == "EQUALS":
             return "'='"
-        if token.kind == "NEWLINE":
+        # No caller can reach these: `raw` holds only NAME/NUMBER/STRING, and
+        # `expect_end` returns before describing a NEWLINE or an EOF.  They stay
+        # as a fallback so a future caller gets a sentence rather than a crash.
+        if token.kind == "NEWLINE":  # pragma: no cover - see above
             return "end of line"
-        return "end of file"
+        return "end of file"  # pragma: no cover - see above
 
 
 def signature(name: str, params: tuple[str, ...]) -> str:

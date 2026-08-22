@@ -319,7 +319,10 @@ class World:
     ) -> None:
         for memory_spec in spec.memories:
             holder = a if memory_spec.holder == "a" else b
-            if holder is None:
+            if holder is None:  # pragma: no cover - see TestVocabularyInvariants
+                # No entry lays a memory on `b` while leaving `b` optional --
+                # `betray`, `apologize` and `reject` all require both agents --
+                # so this is a guard against a future table entry, not a path.
                 continue
             names = {"a": a.name, "b": (b.name if b is not None else a.name)}
             about = None
@@ -981,7 +984,12 @@ class World:
                         )
                     )
                 self.record("impasse", f"{left.name} and {right.name} broke off talks over {dimension}")
-            elif negotiation.rounds > 60:
+            elif negotiation.rounds > 60:  # pragma: no cover - see TestPatienceIsNeverNeeded
+                # A safety net that cannot fire.  Conceding deposits sadness on
+                # the conceder, and sadness is a term in `yielding`, so every
+                # round makes the next concession larger: talks accelerate
+                # toward agreement, or collapse in feeling first.  Kept because
+                # it is cheap and the physics is meant to be argued with.
                 negotiation.status = "impasse"
                 negotiation.closed_at = self.tick_count
                 self.record("impasse", f"{left.name} and {right.name} ran out of patience over {dimension}")

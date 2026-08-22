@@ -1,8 +1,12 @@
 import io
 import json
+import runpy
+import sys
+import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
+from unittest import mock
 
 from catharsis import run_source, to_dict
 from catharsis.cli import main
@@ -106,6 +110,137 @@ class TestExamples(unittest.TestCase):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         for path in EXAMPLES:
             self.assertIn(f"examples/{path.name}", readme, f"{path.name} is not in the README")
+
+
+class TestSpectrumCommand(unittest.TestCase):
+    """`catharsis spectrum` -- the field on its own, and with a run laid over it."""
+
+    def run_cli(self, *argv) -> tuple[int, str, str]:
+        out, err = io.StringIO(), io.StringIO()
+        with redirect_stdout(out), redirect_stderr(err):
+            code = main(list(argv))
+        return code, out.getvalue(), err.getvalue()
+
+    def test_the_field_on_its_own(self):
+        code, out, _ = self.run_cli("spectrum")
+        self.assertEqual(code, 0)
+        self.assertIn("the whole field:", out)
+        self.assertIn("spectral radius", out)
+        self.assertIn("reachable growth", out)
+        self.assertIn("couplings driving it:", out)
+        # The distinction the tool exists to make.
+        self.assertIn("RUNS AWAY", out)
+        self.assertIn("HELD BY THE CONE", out)
+
+    def test_a_program_picks_its_own_edge(self):
+        code, out, _ = self.run_cli("spectrum", str(ROOT / "examples" / "forgiveness.feel"))
+        self.assertEqual(code, 0)
+        self.assertIn("the whole field:", out)
+
+    def test_an_explicit_edge_and_a_written_page(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out_path = Path(tmp) / "phase.html"
+            code, out, _ = self.run_cli(
+                "spectrum",
+                str(ROOT / "examples" / "romeo.feel"),
+                "--edge",
+                "romeo",
+                "juliet",
+                "-o",
+                str(out_path),
+            )
+            self.assertEqual(code, 0)
+            self.assertIn(str(out_path), out)
+            page = out_path.read_text(encoding="utf-8")
+            self.assertIn('id="payload"', page)
+
+    def test_a_program_with_no_bonds_at_all(self):
+        # `pair` comes out empty, so no edge is chosen and nothing is traced.
+        with tempfile.TemporaryDirectory() as tmp:
+            program = Path(tmp) / "alone.feel"
+            program.write_text("agent alice\ntick 1\n", encoding="utf-8")
+            code, out, _ = self.run_cli("spectrum", str(program))
+            self.assertEqual(code, 0)
+            self.assertIn("the whole field:", out)
+
+
+class TestExtraTicks(unittest.TestCase):
+    def run_cli(self, *argv) -> tuple[int, str, str]:
+        out, err = io.StringIO(), io.StringIO()
+        with redirect_stdout(out), redirect_stderr(err):
+            code = main(list(argv))
+        return code, out.getvalue(), err.getvalue()
+
+    def test_run_keeps_ticking_after_the_program_ends(self):
+        program = str(ROOT / "examples" / "coordination.feel")
+        _, plain, _ = self.run_cli("run", program, "--json", "--quiet")
+        _, extra, _ = self.run_cli("run", program, "--json", "--quiet", "--ticks", "5")
+        self.assertNotEqual(json.loads(plain)["state"], json.loads(extra)["state"])
+
+    def test_visualize_keeps_ticking_too(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            plain, extra = Path(tmp) / "a.html", Path(tmp) / "b.html"
+            program = str(ROOT / "examples" / "coordination.feel")
+            _, first, _ = self.run_cli("visualize", program, "-o", str(plain))
+            _, second, _ = self.run_cli("visualize", program, "-o", str(extra), "--ticks", "5")
+            self.assertIn("moments", first)
+            self.assertIn("moments", second)
+            self.assertGreater(extra.stat().st_size, plain.stat().st_size)
+
+    def test_visualize_defaults_its_output_beside_the_program(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            program = Path(tmp) / "tiny.feel"
+            program.write_text("agent a b\nlove a b 0.5\ntick 2\n", encoding="utf-8")
+            code, out, _ = self.run_cli("visualize", str(program))
+            self.assertEqual(code, 0)
+            self.assertTrue(program.with_suffix(".html").exists())
+            self.assertIn("entities", out)
+
+
+class TestFailureModes(unittest.TestCase):
+    def run_cli(self, *argv) -> tuple[int, str, str]:
+        out, err = io.StringIO(), io.StringIO()
+        with redirect_stdout(out), redirect_stderr(err):
+            code = main(list(argv))
+        return code, out.getvalue(), err.getvalue()
+
+    def test_a_syntax_error_is_rendered_with_its_line(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            program = Path(tmp) / "bad.feel"
+            program.write_text("agent a\n!!!\n", encoding="utf-8")
+            code, _, err = self.run_cli("check", str(program))
+            self.assertEqual(code, 1)
+            self.assertIn("syntax error: unexpected character", err)
+            self.assertIn("2 | !!!", err)
+
+    def test_a_runtime_error_is_reported_without_a_traceback(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            program = Path(tmp) / "bad.feel"
+            program.write_text("love alice bob\n", encoding="utf-8")
+            code, _, err = self.run_cli("run", str(program))
+            self.assertEqual(code, 1)
+            self.assertIn("no agent named", err)
+
+    def test_a_closed_pipe_is_not_an_error(self):
+        # `catharsis words | head` closes stdout under us.  The handler points
+        # the rest of stdout at devnull so the interpreter stays quiet on exit.
+        # Not run under redirect_stdout: the handler needs a real fileno().
+        with mock.patch("catharsis.cli._cmd_words", side_effect=BrokenPipeError):
+            with mock.patch("catharsis.cli.os.dup2") as dup2:
+                code = main(["words"])
+        self.assertEqual(code, 0)
+        dup2.assert_called_once()
+
+    def test_the_module_entry_point_runs_the_cli(self):
+        # In-process, so `python -m catharsis` is actually measured rather than
+        # being run somewhere the coverage of this process cannot see.
+        argv = ["catharsis", "check", str(ROOT / "examples" / "sort.feel")]
+        out = io.StringIO()
+        with mock.patch.object(sys, "argv", argv), redirect_stdout(out):
+            with self.assertRaises(SystemExit) as caught:
+                runpy.run_module("catharsis", run_name="__main__")
+        self.assertEqual(caught.exception.code, 0)
+        self.assertIn("no syntax errors", out.getvalue())
 
 
 if __name__ == "__main__":  # pragma: no cover

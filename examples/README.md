@@ -457,6 +457,15 @@ Row 4 is a plainer failure: unrequited love should stay one-sided, and Juliet �
 feeling whatsoever in the program — ends up loving him at 0.59. Nothing in the model lets a
 person simply not be interested.
 
+**One regime is impossible rather than merely absent.** Strogatz's fourth case is the
+oscillating cycle — two people chasing and fleeing for ever. **No two-axis slice of this
+field has a complex eigenvalue at all**: every one of the 190 pairs comes out with real
+eigenvalues, so every slice is a node or a saddle and none is a centre. There is nowhere
+in the field for a cycle to live, and `TestNothingOscillates` checks every pair.
+
+So of Strogatz's four regimes: one appears, one is blocked by an accident of where
+temperaments live, one is swallowed by the warm loop, and one is ruled out by construction.
+
 **Why the example is kept.** It was not found by running the file. `catharsis spectrum`
 predicts it: love/trust is the one slice of the field that RUNS AWAY, at 1.0200 per tick,
 with every other pair settling to indifference. Attachment is not an outcome here, it is a

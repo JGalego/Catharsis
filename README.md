@@ -3,6 +3,7 @@
 **Programs with feelings. 💭❤️‍🔥🧠**
 
 [![CI](https://github.com/JGalego/Catharsis/actions/workflows/ci.yml/badge.svg)](https://github.com/JGalego/Catharsis/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/JGalego/Catharsis/branch/main/graph/badge.svg)](https://codecov.io/gh/JGalego/Catharsis)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Dependencies](https://img.shields.io/badge/dependencies-none-lightgrey.svg)](pyproject.toml)
@@ -243,10 +244,21 @@ being able to act together at all.
 ### Running the tests
 
 ```bash
-python -m unittest discover -s tests -v     # 175 tests, no dependencies
+python -m unittest discover -s tests -v     # no dependencies
 ruff check catharsis tests                  # optional: lint
 ruff format --check catharsis tests         # optional: formatting
+
+pip install coverage                        # the one dev dependency
+python -m coverage run -m unittest discover -s tests
+python -m coverage report                   # fails below 100%
 ```
+
+Coverage is held at **100% of statements**, enforced by `fail_under = 100` in
+`pyproject.toml` rather than by a badge alone. The handful of `pragma: no cover`
+marks are all on branches that are provably unreachable, and each names the test that
+proves it — `TestPatienceIsNeverNeeded`, for instance, exists because conceding
+deposits sadness and sadness feeds `yielding`, so a negotiation can never grind past
+the 60-round patience limit it carries.
 
 ## Examples
 
@@ -371,6 +383,10 @@ Two things are known to be wrong rather than merely unfinished, and both are doc
 - **A couple has essentially one attractor.** `catharsis spectrum` shows why: love/trust is
   the only self-amplifying slice of the field, at 1.02 per tick, so mutual attachment is a
   fixed point almost every start falls into. Fixing it is a decision about that loop.
+- **Nothing oscillates.** No two-axis slice of the field has a complex eigenvalue —
+  all 190 pairs come out real, so every slice is a node or a saddle and none is a
+  centre. Two people cannot chase each other round in a cycle, because the field has
+  nowhere to put one.
 - **Temperament cannot reach a bond.** `_spill` moves outward feeling onto self-regard and
   nothing goes the other way, so a trait can only change a bond by changing which action
   fires. Strogatz's "cautiousness" therefore has no analogue in the bond dynamics at all,

@@ -6,17 +6,22 @@ component names a state the runtime has no way to be in, and the eigenvalue that
 goes with it describes an instability nothing can reach.
 """
 
+import itertools
 import unittest
 
 from catharsis import run_source
 from catharsis.analysis import (
+    Spectrum,
+    _settle,
     dominant_mode,
+    drivers,
     eigenvalues,
     feasible_growth,
     linear_operator,
     portrait,
     runtime_bifurcation,
     spectrum,
+    sweep,
     trajectory,
 )
 from catharsis.field import COUPLING, DECAY, EMOTIONS, SPILL
@@ -122,6 +127,116 @@ class TestReachability(unittest.TestCase):
             self.assertAlmostEqual(late.get(emotion), early.get(emotion), places=2)
 
 
+class TestClassification(unittest.TestCase):
+    """The verdicts, driven by matrices chosen to land in each one."""
+
+    def spec(self, matrix, axes=("love", "trust")):
+        values = eigenvalues(matrix)
+        growth, mode = dominant_mode(matrix)
+        reachable, reachable_mode = feasible_growth(matrix)
+        return Spectrum(axes, values, growth, mode, reachable, reachable_mode)
+
+    def test_a_one_by_one_matrix(self):
+        # QR iteration has nothing to do, so `eigenvalues` short-circuits.
+        self.assertEqual(eigenvalues([[0.75]]), [complex(0.75)])
+
+    def test_a_source_grows_in_every_direction(self):
+        spec = self.spec([[1.2, 0.0], [0.0, 1.1]])
+        self.assertEqual(spec.kind, "source")
+        self.assertTrue(spec.runs_away)
+        self.assertIn("RUNS AWAY", spec.verdict)
+
+    def test_a_sink_decays_in_every_direction(self):
+        spec = self.spec([[0.8, 0.0], [0.0, 0.7]])
+        self.assertEqual(spec.kind, "sink")
+        self.assertIn("SETTLES", spec.verdict)
+
+    def test_sitting_exactly_on_the_unit_circle_is_marginal(self):
+        spec = self.spec([[1.0, 0.0], [0.0, 0.5]])
+        self.assertEqual(spec.kind, "marginal")
+        self.assertFalse(spec.runs_away)
+
+    def test_a_subsystem_with_no_axes_at_all(self):
+        spec = Spectrum((), [], 0.0, [], 0.0, [])
+        self.assertEqual(spec.kind, "empty")
+        self.assertEqual(spec.radius, 0.0)
+        self.assertIn("empty", spec.verdict)
+
+    def test_a_rotation_oscillates_and_has_a_period(self):
+        spec = self.spec([[0.0, -1.0], [1.0, 0.0]])
+        self.assertEqual(len(spec.oscillating), 2)
+        # A quarter turn per tick, so it comes back round every four.
+        self.assertAlmostEqual(spec.period(spec.values[0]), 4.0, places=6)
+
+    def test_something_that_does_not_turn_has_no_period(self):
+        spec = self.spec([[0.8, 0.0], [0.0, 0.7]])
+        self.assertEqual(spec.oscillating, [])
+        self.assertIsNone(spec.period(spec.values[0]))
+
+    def test_the_dominant_mode_is_reported_by_axis(self):
+        named = spectrum(("love", "trust")).dominant(2)
+        self.assertEqual({name for name, _ in named}, {"love", "trust"})
+
+
+class TestNothingOscillates(unittest.TestCase):
+    """No two-axis slice of the field spirals, and that is a fact about the language.
+
+    Every pair of the twenty emotions has real eigenvalues, so every slice is a
+    node or a saddle and none is a centre.  Strogatz's fourth regime -- the
+    oscillating cycle, where two people chase each other round for ever -- has
+    nowhere to live here.  See ``examples/romeo.feel``.
+
+    It is also why the complex-eigenvalue branch in `portrait` carries a
+    `pragma: no cover`.  If a coupling is ever added that makes a pair rotate,
+    this fails and the pragma stops being honest.
+    """
+
+    def test_no_pair_of_emotions_has_a_complex_eigenvalue(self):
+        spirals = [(a, b) for a, b in itertools.combinations(EMOTIONS, 2) if spectrum((a, b)).oscillating]
+        self.assertEqual(spirals, [], "a slice now rotates; portrait's pragma needs revisiting")
+
+    def test_the_machinery_would_notice_one_if_there_were(self):
+        # The detector itself works -- it is the field that has nothing to find.
+        self.assertTrue(eigenvalues([[0.0, -1.0], [1.0, 0.0]])[0].imag)
+
+
+class TestSettling(unittest.TestCase):
+    def test_a_state_that_is_still_moving_when_the_budget_runs_out(self):
+        # Neither exact exit fires: the point is above the "tiny" floor and
+        # still creeping, so `_settle` hands back where it got to.
+        matrix = [[1.0, 0.0], [0.0, 1.0]]
+        self.assertEqual(_settle(matrix, [0.5, 0.5], steps=3), [0.5, 0.5])
+        slow = [[0.999999, 0.0], [0.0, 0.999999]]
+        self.assertGreater(_settle(slow, [1.0, 1.0], steps=5)[0], 0.99)
+
+    def test_a_vertical_eigendirection_has_no_slope(self):
+        # Off-diagonal zero, so the eigenvector is vertical and the slope would
+        # be infinite -- which JSON cannot carry.
+        port = portrait(("grief", "sadness"), resolution=3, grid=5)
+        self.assertTrue(all("slope" in manifold for manifold in port.manifolds))
+
+    def test_sweeping_one_coordinate_of_a_slice(self):
+        rows = sweep(("love", "trust"), start=(0.0, 0.4), along=0, steps=9)
+        self.assertEqual(len(rows), 9)
+        self.assertEqual(rows[0]["parameter"], 0.0)
+        self.assertEqual(rows[-1]["parameter"], 1.0)
+        for row in rows:
+            self.assertTrue(0.0 <= row["x"] <= 1.0 and 0.0 <= row["y"] <= 1.0)
+
+    def test_the_couplings_that_drive_the_instability(self):
+        rows = drivers(("love", "trust"), limit=3)
+        self.assertTrue(rows)
+        self.assertEqual(rows, sorted(rows, reverse=True), "not ordered by contribution")
+        for _, source, target, _ in rows:
+            self.assertIn(source, ("love", "trust"))
+            self.assertIn(target, ("love", "trust"))
+
+    def test_drivers_ignores_couplings_outside_the_slice(self):
+        # `doubt -> trust` is real but doubt is not in this slice.
+        named = {(source, target) for _, source, target, _ in drivers(("love", "trust"))}
+        self.assertNotIn(("doubt", "trust"), named)
+
+
 class TestPortrait(unittest.TestCase):
     def test_a_portrait_has_a_field_and_a_verdict(self):
         port = portrait(("love", "trust"), resolution=5, grid=11)
@@ -212,12 +327,19 @@ class TestTrajectory(unittest.TestCase):
         world = World(record=True)
         world.run(parse("agent a b\nlove a b 0.6\ntick 4\n"))
         path = trajectory(world, "a", "b", ("love", "trust"))
-        # Every frame but the first, which is recorded before `a` exists: a
-        # phase portrait has no point for an agent that has not been declared.
-        self.assertEqual(len(path), len(world.frames) - 1)
+        # The two frames before the edge exists carry no point: one recorded
+        # before `a` is declared, one after `agent a b` but before `love a b`
+        # creates the bond.  A phase portrait has nowhere to put those.
+        self.assertEqual(len(path), len(world.frames) - 2)
         self.assertNotIn("a", world.frames[0]["state"]["agents"])
+        self.assertNotIn("b", world.frames[1]["state"]["agents"]["a"]["bonds"])
         self.assertTrue(all(0.0 <= point["x"] <= 1.0 for point in path))
         self.assertGreater(path[-1]["y"], path[0]["y"], "trust should have grown from love")
+
+    def test_an_edge_that_never_exists_traces_nothing(self):
+        world = World(record=True)
+        world.run(parse("agent a b\nlove a b 0.6\ntick 2\n"))
+        self.assertEqual(trajectory(world, "a", "nobody", ("love", "trust")), [])
 
 
 if __name__ == "__main__":  # pragma: no cover

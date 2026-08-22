@@ -1,0 +1,19 @@
+# The gate that actually fails the build is `fail_under = 100` in
+# pyproject.toml; this keeps Codecov's own status checks in step with it rather
+# than quietly accepting a drop.
+coverage:
+  round: down
+  precision: 2
+  status:
+    project:
+      default:
+        target: 100%
+        threshold: 0%
+    patch:
+      default:
+        target: 100%
+        threshold: 0%
+
+comment:
+  layout: "reach, diff, flags, files"
+  require_changes: true

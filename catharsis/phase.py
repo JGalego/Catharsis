@@ -82,12 +82,22 @@ def build_payload(
     title: str = "field",
     sweep_source: str | None = None,
     sweep_label: str = "mutual doubt",
+    resolution: int = 17,
+    grid: int = 61,
+    sweep_steps: int = 41,
 ) -> dict:
-    """Everything the page draws, computed here so the page only renders."""
+    """Everything the page draws, computed here so the page only renders.
+
+    The last three arguments are the fidelity knobs -- how coarse the quiver
+    grid is, how finely the basins are sampled, and how many times the sweep
+    re-runs the whole program.  The defaults are what the page ships with; the
+    tests turn them down, because a full-fidelity payload takes about half a
+    minute and none of that time is spent on anything the tests are checking.
+    """
     whole = spectrum(EMOTIONS)
     slices = []
     for axes in pairs:
-        port = portrait(axes)
+        port = portrait(axes, resolution=resolution, grid=grid)
         slices.append(
             {
                 "axes": list(axes),
@@ -100,7 +110,7 @@ def build_payload(
                 "path": (trajectory(world, edge[0], edge[1], axes) if world and edge else []),
             }
         )
-    bifurcation = runtime_bifurcation(sweep_source or DEFAULT_SWEEP, steps=41)
+    bifurcation = runtime_bifurcation(sweep_source or DEFAULT_SWEEP, steps=sweep_steps)
     collisions = [
         round((bifurcation[i - 1]["parameter"] + row["parameter"]) / 2, 4)
         for i, row in enumerate(bifurcation)

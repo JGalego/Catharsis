@@ -2,7 +2,8 @@ import unittest
 
 from catharsis import parse
 from catharsis.ast import Declare, Utter
-from catharsis.errors import LexError, ParseError
+from catharsis.errors import LexError, ParseError, SourceError
+from catharsis.vocabulary import resolve
 
 
 class TestLexing(unittest.TestCase):
@@ -102,6 +103,83 @@ class TestParsing(unittest.TestCase):
         self.assertIsInstance(statement, Utter)
         self.assertEqual(statement.verb, "witness")
         self.assertEqual([statement.slot(i) for i in range(4)], ["charlie", "alice", "betraying", "bob"])
+
+
+class TestRejections(unittest.TestCase):
+    """The messages a beginner actually hits, and the token names in them."""
+
+    def bad(self, source: str) -> str:
+        with self.assertRaises(SourceError) as caught:
+            parse(source)
+        return caught.exception.render()
+
+    def test_a_line_must_start_with_a_word(self):
+        for source, described in (
+            ("0.5 alice bob\n", "the number 0.5"),
+            ('"a claim" alice\n', "a quoted claim"),
+            ("= agent\n", "'='"),
+        ):
+            with self.subTest(source=source.strip()):
+                rendered = self.bad(source)
+                self.assertIn("a line must start with a word", rendered)
+                self.assertIn(described, rendered)
+
+    def test_only_an_agent_can_be_declared(self):
+        rendered = self.bad("alice = group\n")
+        self.assertIn("only 'agent' can be declared", rendered)
+        self.assertIn("groups are declared with 'group name'", rendered)
+
+    def test_a_word_where_a_number_belongs(self):
+        rendered = self.bad("agent alice\nhave alice bread apples\n")
+        self.assertIn("'have' expects a number here", rendered)
+        self.assertIn("the word 'apples'", rendered)
+
+    def test_a_stray_equals_after_a_complete_utterance(self):
+        # `raw` only swallows words, numbers and quoted claims, so an `=` lands
+        # past the end of the arguments.
+        self.assertIn("unexpected '=' at end of line", self.bad("love alice = bob\n"))
+
+    def test_a_character_the_language_has_no_use_for(self):
+        rendered = self.bad("agent alice\nlove alice & bob\n")
+        self.assertIn("unexpected character", rendered)
+        self.assertIn("&", rendered)
+
+
+class TestSlots(unittest.TestCase):
+    def test_asking_for_a_slot_that_is_not_there(self):
+        statement = parse("pride charlie\n").statements[0]
+        self.assertEqual(statement.slot(0), "charlie")
+        self.assertIsNone(statement.slot(9))
+        self.assertEqual(statement.slot(9, "fallback"), "fallback")
+
+    def test_a_program_can_quote_its_own_source(self):
+        program = parse("agent alice\npride alice 0.5\n")
+        self.assertEqual(program.line_text(2), "pride alice 0.5")
+        self.assertEqual(program.line_text(0), "")
+        self.assertEqual(program.line_text(99), "")
+
+
+class TestNormalisation(unittest.TestCase):
+    """A verb is recognised in the shapes people naturally write it in."""
+
+    def test_the_forms_that_resolve(self):
+        # `betraying` and `forgiving` would not test the gerund rules -- they
+        # are in ALIASES and short-circuit before reaching them.
+        cases = {
+            "betray": "betray",  # already canonical
+            "lonely": "loneliness",  # an alias
+            "betraying": "betray",  # an alias that happens to be a gerund
+            "witnessing": "witness",  # gerund, plain stem
+            "hoping": "hope",  # gerund, stem wants its `e` back
+            "betrayed": "betray",  # past tense
+            "goals": "goal",  # plural
+        }
+        for written, canonical in cases.items():
+            with self.subTest(written=written):
+                self.assertEqual(resolve(written), canonical)
+
+    def test_a_word_it_cannot_place_is_handed_back_unchanged(self):
+        self.assertEqual(resolve("flurbling"), "flurbling")
 
 
 if __name__ == "__main__":  # pragma: no cover
