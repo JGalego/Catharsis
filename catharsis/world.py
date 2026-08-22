@@ -49,6 +49,24 @@ TEMPERAMENT_RATE = 0.08
 #: Maximum share of the remaining gap a negotiator will close in one round.
 MAX_CONCESSION = 0.40
 
+#: How many actionless ticks ``settle`` needs before it believes the field is
+#: done.  Must exceed the time for full habituation to wear off, or a resting
+#: agent looks like a finished one.
+QUIET_TICKS = 8
+
+
+def source_line(node) -> str:
+    """The statement as the author wrote it, minus any trailing comment."""
+    text = getattr(node, "text", "") or ""
+    quoted = False
+    for index, char in enumerate(text):
+        if char == '"':
+            quoted = not quoted
+        elif char == "#" and not quoted:
+            text = text[:index]
+            break
+    return " ".join(text.split()) or "(nothing)"
+
 
 @dataclass
 class Event:
@@ -71,16 +89,24 @@ class Decision:
 class World:
     """Everything that exists, and the rules by which it changes."""
 
-    def __init__(self, sink=None, trace: bool = False, emoji: bool = False) -> None:
+    def __init__(self, sink=None, trace: bool = False, emoji: bool = False, record: bool = False) -> None:
         self.agents: dict[str, Agent] = {}
         self.groups: dict[str, Group] = {}
         self.negotiations: list[Negotiation] = []
+        #: resource -> how much handing it over exposes the giver.
+        self.risk: dict[str, float] = {}
         self.tick_count = 0
         self.log: list[Event] = []
         self.sink = sink if sink is not None else (lambda line: None)
         self.trace = trace
         #: Render state with one glyph per emotion instead of the word.
         self.emoji = emoji
+        #: When recording, every statement and every tick leaves a full snapshot
+        #: behind, so the whole run can be replayed rather than only summarised.
+        self.recording = record
+        self.frames: list[dict] = []
+        self._logged = 0
+        self._line = 0
         self.filename = "<source>"
 
     # ------------------------------------------------------------------
@@ -125,23 +151,59 @@ class World:
     # ------------------------------------------------------------------
     def run(self, program: Program) -> World:
         self.filename = program.filename
+        self.capture("(before anything happens)", "start")
         for statement in program.statements:
             if isinstance(statement, Declare):
                 self.declare(statement)
+                self.capture(source_line(statement), "utterance")
             else:
                 self.utter(statement)
+                # A tick has already captured a frame for each step it ran.
+                if VOCABULARY[statement.verb].effect != "tick":
+                    self.capture(source_line(statement), "utterance")
         return self
 
+    def capture(self, label: str, kind: str) -> None:
+        """Freeze the whole world, labelled with whatever just happened."""
+        if not self.recording:
+            return
+        from .report import to_dict
+
+        events = [event.text for event in self.log[self._logged :]]
+        self._logged = len(self.log)
+        self.frames.append(
+            {
+                "index": len(self.frames),
+                "tick": self.tick_count,
+                "line": self._line,
+                "label": label,
+                "kind": kind,
+                "events": events,
+                "state": to_dict(self),
+            }
+        )
+
     def declare(self, node: Declare) -> Agent:
-        if node.name in self.agents:
-            raise self.fail(node, f"'{node.name}' is already an agent", "each agent is declared once")
-        agent = Agent(node.name, born=self.tick_count)
-        agent.bond(node.name, at=self.tick_count)  # everyone has a relationship with themselves
-        self.agents[node.name] = agent
-        self.record("declare", f"{node.name} exists")
+        self._line = node.line
+        return self.bring_into_being(node.name, node)
+
+    def bring_into_being(self, name: str, node) -> Agent:
+        if name in self.agents:
+            raise self.fail(node, f"'{name}' is already an agent", "each agent is declared once")
+        if name in self.groups:
+            raise self.fail(node, f"'{name}' is already a group")
+        agent = Agent(name, born=self.tick_count)
+        agent.bond(name, at=self.tick_count)  # everyone has a relationship with themselves
+        self.agents[name] = agent
+        self.record("declare", f"{name} exists")
         return agent
 
+    def _effect_agent(self, node: Utter, a, b) -> None:
+        for name in node.slot(0, ()):
+            self.bring_into_being(str(name), node)
+
     def utter(self, node: Utter) -> None:
+        self._line = node.line
         spec = VOCABULARY[node.verb]
         a, b = self._principals(spec, node)
         scale = 1.0
@@ -257,7 +319,10 @@ class World:
     ) -> None:
         for memory_spec in spec.memories:
             holder = a if memory_spec.holder == "a" else b
-            if holder is None:
+            if holder is None:  # pragma: no cover - see TestVocabularyInvariants
+                # No entry lays a memory on `b` while leaving `b` optional --
+                # `betray`, `apologize` and `reject` all require both agents --
+                # so this is a guard against a future table entry, not a path.
                 continue
             names = {"a": a.name, "b": (b.name if b is not None else a.name)}
             about = None
@@ -285,6 +350,37 @@ class World:
             raise self.fail(node, "tick needs a positive number of steps")
         for _ in range(steps):
             self.step()
+
+    def _effect_settle(self, node: Utter, a, b) -> None:
+        """Tick until the field goes quiet.
+
+        Every other statement in Catharsis runs for a length fixed by the program
+        text, which is why every program used to halt and why the language was
+        strictly weaker than a Turing machine.  This one runs until no agent's
+        pressure clears the action threshold -- a data-dependent stopping
+        condition, and the missing ingredient.  A program using it may not
+        terminate, which is the price of the power.
+
+        The optional bound is a safety valve for programs that are meant to
+        terminate; without it there is none, on purpose.
+        """
+        limit = node.slot(0)
+        bound = int(limit) if limit is not None else None
+        if bound is not None and bound < 1:
+            raise self.fail(node, "settle needs a positive bound")
+        started = self.tick_count
+        idle = 0
+        while bound is None or self.tick_count - started < bound:
+            before = len(self.log)
+            self.step()
+            acted = any(event.kind == "act" for event in self.log[before:])
+            # Quiet means quiet for a while.  A single actionless tick proves
+            # nothing: habituation wears off at a fixed rate, so an agent that
+            # cannot move this tick may well move in three.
+            idle = 0 if acted else idle + 1
+            if idle >= QUIET_TICKS:
+                break
+        self.record("settle", f"quiet after {self.tick_count - started} ticks")
 
     def _effect_observe(self, node: Utter, a, b) -> None:
         from .report import render_agent, render_group, render_world
@@ -349,6 +445,11 @@ class World:
         agent.goals[dimension] = float(value)
         agent.stances[dimension] = float(value)
         self.record("goal", f"{agent.name} wants {dimension} = {value:g}")
+
+    def _effect_risk(self, node: Utter, a, b) -> None:
+        resource = str(node.slot(0))
+        self.risk[resource] = clamp(float(node.slot(1)))
+        self.record("risk", f"{resource} is risky to give away ({self.risk[resource]:.2f})")
 
     def _effect_have(self, node: Utter, a: Agent, b) -> None:
         a.resources[str(node.slot(1))] = float(node.slot(2))
@@ -706,6 +807,7 @@ class World:
         for agent in self.agents.values():
             agent.rest()
             agent.refresh_trust_ceilings()
+        self.capture(f"tick {self.tick_count}", "tick")
 
     def _apply_deltas(self, deltas: dict[tuple[str, str, str], float]) -> None:
         for (holder, target, emotion), delta in deltas.items():
@@ -882,7 +984,12 @@ class World:
                         )
                     )
                 self.record("impasse", f"{left.name} and {right.name} broke off talks over {dimension}")
-            elif negotiation.rounds > 60:
+            elif negotiation.rounds > 60:  # pragma: no cover - see TestPatienceIsNeverNeeded
+                # A safety net that cannot fire.  Conceding deposits sadness on
+                # the conceder, and sadness is a term in `yielding`, so every
+                # round makes the next concession larger: talks accelerate
+                # toward agreement, or collapse in feeling first.  Kept because
+                # it is cheap and the physics is meant to be argued with.
                 negotiation.status = "impasse"
                 negotiation.closed_at = self.tick_count
                 self.record("impasse", f"{left.name} and {right.name} ran out of patience over {dimension}")
@@ -994,7 +1101,27 @@ class World:
             if key == "deficit":
                 return self._deficit(agent)
             if key == "their_need":
-                return self._deficit(target)
+                # How much somebody's need moves you depends on what they are
+                # asking for.  Nobody hands over the keys because the asker
+                # looks like they could use them.
+                return self._deficit(target) * (1.0 - self._exposure(agent, target))
+            if key == "own_need":
+                # Short of *this* thing, specifically.  A person with nothing in
+                # the cupboard is not thereby unwilling to lend a book.
+                resource = self._giveable_resource(agent, target)
+                if resource is None:
+                    return 0.0
+                needed = agent.needs.get(resource, 0.0)
+                if needed <= 0:
+                    return 0.0
+                return clamp(max(0.0, needed - agent.resources.get(resource, 0.0)) / needed)
+            if key == "exposure":
+                # What you would be handing over, weighed against how far you
+                # actually trust the person asking.  For a harmless resource
+                # this is zero and the term disappears.
+                bond = agent.bonds.get(target.name)
+                trust = 0.0 if bond is None else bond.get("trust")
+                return self._exposure(agent, target) * (1.0 - trust)
             if key == "group_trust":
                 return self._group_feeling(agent, "trust")
             if key == "group_doubt":
@@ -1057,14 +1184,26 @@ class World:
             )
         return True  # pragma: no cover - unknown requirement is a table bug
 
+    #: A resource this risky is a capability rather than a good: it exists only
+    #: because its holder confers it, so it cannot be carried off.  Commit access
+    #: cannot be stolen from someone the way bread can.
+    TAKEABLE_RISK = 0.5
+
     def _contested_resource(self, agent: Agent, target: Agent) -> str | None:
         best = None
         margin = 0.0
         for resource, amount in sorted(target.resources.items()):
+            if self.risk.get(resource, 0.0) > self.TAKEABLE_RISK:
+                continue
             if amount - agent.resources.get(resource, 0.0) > margin:
                 margin = amount - agent.resources.get(resource, 0.0)
                 best = resource
         return best if margin >= 1.0 else None
+
+    def _exposure(self, agent: Agent, target: Agent) -> float:
+        """How dangerous the thing this agent would hand over actually is."""
+        resource = self._giveable_resource(agent, target)
+        return 0.0 if resource is None else self.risk.get(resource, 0.0)
 
     def _giveable_resource(self, agent: Agent, target: Agent) -> str | None:
         for resource, needed in sorted(target.needs.items()):

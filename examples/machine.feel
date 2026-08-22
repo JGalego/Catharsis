@@ -1,0 +1,158 @@
+# How far Catharsis gets toward a counter machine, and exactly where it stops
+#
+# ==============================================================================
+# WHAT THIS IS FOR
+#
+# Until `settle` existed, Catharsis was not Turing-complete and the disproof was
+# one line: every program halted. A program is a straight-line list of
+# statements, `tick n` takes a literal n, and there is no loop, no conditional
+# and no recursion at the program level. A language in which every program
+# terminates cannot be Turing-complete, because then halting would be decidable.
+#
+# `settle` is the one statement whose length is decided by the data:
+#
+#     settle        tick until nobody acts, with no bound at all
+#     settle 400    the same, with a safety bound
+#
+# The unbounded form can genuinely fail to terminate, which is the price of the
+# power and the point of the exercise.
+#
+# A counter machine needs four things: an exact unbounded register, a way to
+# decrement it, a way to increment it, and control flow that can branch. Three of
+# them exist. The fourth does not, and this file is mostly about being precise
+# regarding which one and why. Everything asserted below is a runnable check in
+# `TestCounterMachine` in `tests/test_semantics.py`.
+#
+# ==============================================================================
+# 1. THE REGISTER, AND THE UNBOUNDED LOOP  (works)
+#
+# `giver` holds N units and needs none of them. `sink` needs more than anyone
+# could supply. A unit moves whenever an action fires that moves one, and every
+# such action stops firing once `giver` has nothing spare, so the transfer runs
+# exactly N times and no more:
+#
+#     N        units moved   last move at tick
+#      3            3                3
+#     11           11               16
+#     25           25               53
+#     60           60              114
+#
+# The count is exact and the *duration* is a function of N that appears nowhere
+# in the control flow. It is not even linear in N: the giver habituates, so each
+# unit costs a little more than the last. Nothing in the program counts anything.
+#
+# ==============================================================================
+# 2. WHY THE BOUND ON `settle` IS NOT DECORATION
+#
+# `settle 400` below really does run 400 ticks. The register drains by tick 16
+# and then the two of them go on reaching out to each other forever, because that
+# is what `catharsis spectrum` says the love/trust slice does: RUNS AWAY at 1.0200
+# per tick, the one part of the field that does not decay to indifference.
+#
+# So the warmth that powers the loop is the same thing that stops the field ever
+# going quiet. Remove the bound and this program does not terminate — which is
+# the property being demonstrated, not a bug in the example.
+#
+# ==============================================================================
+# 3. CONTROL FLOW: A TWO-STATE PROGRAM COUNTER  (works, and is a nice surprise)
+#
+# Two agents who each envy the other, with one baton between them, produce a
+# clean alternation — a, b, a, b — for as long as you run it:
+#
+#     tick 1   b took baton from a
+#     tick 2   a took baton from b
+#     tick 3   b took baton from a
+#     ...      40 alternations in 60 ticks, no misfires
+#
+# Nothing schedules that. `compete` succeeds when the taker's *standing* beats the
+# holder's, and being robbed deposits anger, which is a term in standing. Losing
+# the baton is what gives you the strength to take it back. That is a flip-flop
+# built out of a grudge, and it is an exact two-state program counter.
+#
+# ==============================================================================
+# 4. WHERE IT STOPS  (two obstructions that turn out to be one fact)
+#
+# FIRST: a ring of three does not work. Wire a envies c, b envies a, c envies b
+# and you do not get a → b → c → a. You get a → b → a → b → c → a → b → a,
+# because `compete` deposits anger *in the victim, toward the taker*, and anger
+# is a term in `compete`'s own affinity. Every transfer creates a back-edge.
+# Control flow in Catharsis is natively bidirectional: a program counter here
+# wants to be a quarrel, and quarrels are two-sided.
+#
+# SECOND: one agent cannot be a read-write register. Not for the reason it first
+# appears, either — it is worth being exact, because the obvious answer is wrong.
+#
+#   The obvious answer: `give` moves a unit from someone with `spare = have -
+#   need >= 1` to someone with `short = need - have > 0`, and those are mutually
+#   exclusive for one agent. True, but it does not settle anything, because
+#   `compete` has no `need` condition at all. A satisfied agent can take. Run the
+#   check and it does: `reg`, which needs nothing, takes ten units.
+#
+#   The real answer: it takes ten and then stops, permanently. `compete` is driven
+#   by envy, and envy has exactly one renewing source in the runtime — `_needs`,
+#   which manufactures it in whoever is *short* of the resource. Give `reg` a
+#   standing need and it takes without limit (96 units in 240 ticks, still
+#   climbing). But `give`'s inhibition vector contains `own_need` at 0.70, keyed
+#   on the shortfall in that same resource. So the thing that makes incrementing
+#   sustainable is the thing that suppresses decrementing.
+#
+#   The mutual exclusion is between the two *pressure sources*, not between the
+#   two preconditions. An agent can be a source or a sink; being both requires
+#   being simultaneously hungry and content about the same thing.
+#
+# ==============================================================================
+# WHAT WOULD CLOSE IT
+#
+# One primitive, and it is a feeling the language is missing rather than a
+# borrowed `goto`: a need that comes back after it is met. `need` is a quota —
+# meet it once and it is met forever. Appetite is not like that.
+#
+# With a renewing need, `give` becomes a directed control transfer, and unlike
+# `compete` it leaves gratitude behind instead of anger, so it has no back-edge.
+# `test_a_renewing_need_gives_a_directed_ring` emulates one by restating `need`
+# between three settles, and the ring runs clean:
+#
+#     tick  1   a gave b baton
+#     tick  9   b gave c baton
+#     tick 17   c gave a baton
+#
+# a → b → c → a, one hop per phase, exactly once each, no retaliation. That is
+# the arbitrary-length program counter the flip-flop cannot provide. It is
+# emulated rather than implemented: the renewal is three hand-written
+# statements, so the ring is as long as the source is, which is finite.
+#
+# Turing-completeness is therefore NOT established, and this file does not claim
+# it. What is established: `settle` removed totality, the register is exact and
+# unbounded, control flow of two states exists and emerges rather than being
+# built, and the route to the rest is a renewing appetite plus a branch that
+# routes the baton on a register's value. The second half of that is still open.
+# See the README's "Status" section.
+
+# ------------------------------------------------------------------------------
+# The register and the loop that outlives it.
+#
+# The control-flow demonstrations above each need a world of their own -- an
+# agent with an unsatisfiable appetite will compete with anyone holding anything,
+# so putting them in this file would have them stealing each other's batons and
+# the numbers would stop meaning what they say. They live in
+# `TestCounterMachine` in `tests/test_semantics.py`, one world each, as
+# assertions rather than as prose.
+
+agent giver sink
+
+# The register. `need 0` is what makes all of it spare.
+have giver unit 11
+need giver unit 0
+
+# An appetite nothing can satisfy, so the loop is never stopped from this end.
+need sink unit 100000
+
+# Enough warmth that giving clears the action threshold. Note that this is the
+# only thing driving the loop: there is no `while`, and nothing counts.
+love giver sink 0.95
+trust giver sink 0.95
+
+settle 400
+
+observe giver
+observe sink

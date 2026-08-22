@@ -20,9 +20,7 @@
 # 💔 betray  🙇 apology  🤲 forgive  👁️ witness  🎁 gift      🧠 remember
 # 💭 recall  🙅 deny     🧘 accept   🔀 choice    ⏱️ tick
 
-alice = 👤
-bob   = 👤
-carol = 👤
+👤 alice bob carol
 
 ❤️ alice bob 0.9
 ❤️ bob alice 0.7

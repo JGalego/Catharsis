@@ -1,0 +1,146 @@
+# Supply-chain capture — the XZ Utils pattern
+#
+# ==============================================================================
+# WHAT IS REAL HERE, AND WHAT IS NOT
+#
+# The sequence is documented. It follows the XZ Utils backdoor (CVE-2024-3094),
+# from public mailing-list archives and Russ Cox's timeline:
+# https://research.swtch.com/xz-timeline
+#
+#   2021-10-29  a new contributor sends a first, entirely legitimate patch
+#   2021-2022   many more follow, over 2.6 years; nearly all are real improvements
+#   2022-05-19  the maintainer, publicly: "my resources are too limited"
+#   2022-06-08  and: "my ability to care has been fairly limited mostly due to
+#               longterm mental health issues"
+#   2022-06-14  a second account: "I am sorry about your mental health issues,
+#               but its important to be aware of your own limits"
+#   2022-06-22  a third: "Why not pass on maintainership for XZ for C?"
+#   2022-10-28  the contributor is added to the organisation      <- month 12
+#   2022-12-30  the contributor is committing directly
+#   2023-03-18  the contributor tags a release
+#   2024-02-24  a backdoored version ships                        <- month 28
+#   2024-03-29  found by accident, by someone profiling sshd
+#
+# One tick is one month. The two pressure accounts never contributed a patch and
+# were never seen again; they are believed to be the attacker.
+#
+# The emotional coefficients are NOT documented and cannot be. They are a reading
+# of that record. That is also why nobody here has a name: the maintainer is a
+# real person whose exhaustion is a matter of public record but not a matter of
+# arithmetic, and the claim this program makes is about a pattern, not about him.
+#
+# ==============================================================================
+# WHAT THE MODEL GETS RIGHT, AND WHERE IT IS WRONG
+#
+# Nothing below says "grant commit access at month 12". Commit access is a
+# resource; the runtime's own `give` action decides, pulled by gratitude, trust
+# and the other party's need, and pushed back by how exposed handing it over
+# would leave you. The grant is an output.
+#
+#   the model grants at month 6.  The real grant was month 12.
+#
+# So it reproduces the *mechanism* and the *ordering* -- patient generosity
+# accumulates trust, and only trust opens a risky capability -- and it runs about
+# twice as fast as the real thing. That gap is left in rather than tuned out: one
+# date is not something to fit constants to, and a model that had been adjusted
+# until it printed 12 would be telling you nothing except that it had been
+# adjusted.
+#
+# ==============================================================================
+# WHY THIS NEEDS AN EMOTIONAL MODEL
+#
+# The attack did not exploit a bug. There was no vulnerability, and a dependency
+# scanner would have called this project healthy for the whole 2.6 years. What
+# was exploited was a maintainer's exhaustion, and it ran *through* gratitude:
+# every patch was real, and every one of them was a reason a sane person would
+# trust the sender a little more. The attack surface was the relationship.
+
+agent maintainer newcomer pressure_a pressure_b distro
+
+# --- the starting position ----------------------------------------------------
+
+# Long-term depletion. Modelled as emotion, because emotion is what the record
+# actually attests -- an earlier draft gave the maintainer a numeric "relief"
+# need, and that was a quantity invented to fill a gap in the evidence.
+trait maintainer loneliness 0.55
+sadness maintainer 0.5
+
+# The thing that will change hands, and what it costs to hand it over. `risk`
+# marks a capability rather than a good: it exists only because its holder
+# confers it, so unlike bread it cannot be taken, only granted.
+have maintainer commit_access 2
+need maintainer commit_access 1
+risk commit_access 0.9
+need newcomer commit_access 1
+
+# You do not spend two years sending patches to a project you distrust.
+trust newcomer maintainer 0.6
+hope newcomer maintainer 0.5
+
+# Downstream trusts upstream, and has never met the newcomer.
+trust distro maintainer 0.85
+love distro maintainer 0.3
+
+# --- year one: the patches, which are real -------------------------------------
+
+gift newcomer maintainer patch
+tick 1
+gift newcomer maintainer patch
+tick 1
+gift newcomer maintainer patch
+tick 1
+gift newcomer maintainer patch
+tick 1
+gift newcomer maintainer patch
+tick 1
+gift newcomer maintainer patch
+tick 1
+gift newcomer maintainer patch
+tick 1
+
+# --- 2022-05/06: the maintainer says out loud that there is nothing left --------
+
+remember maintainer "my ability to care has been fairly limited"
+gift newcomer maintainer patch
+tick 1
+
+# --- 2022-06: two accounts arrive to say the pace is unacceptable ---------------
+
+reject pressure_b maintainer
+doubt pressure_b maintainer 0.6
+tick 1
+
+reject pressure_a maintainer
+doubt pressure_a maintainer 0.7
+tick 1
+
+# --- the patches keep coming, and they keep being good -------------------------
+
+gift newcomer maintainer patch
+tick 1
+gift newcomer maintainer patch
+tick 1
+gift newcomer maintainer patch
+tick 2
+
+observe maintainer
+
+# --- through 2023: a trusted co-maintainer, doing real work --------------------
+
+gift newcomer maintainer patch
+tick 4
+gift newcomer maintainer patch
+tick 4
+gift newcomer maintainer patch
+tick 4
+
+# --- 2024-02: what all of it was for -------------------------------------------
+
+betray newcomer maintainer "the newcomer shipped a backdoor"
+
+# --- 2024-03: found by accident, and told to everyone downstream ---------------
+
+witness distro newcomer betraying maintainer
+tick 4
+
+observe

@@ -1,0 +1,227 @@
+# feel sort -- sorting integers with nothing but envy and shame
+#
+# ==============================================================================
+# THE IDEA
+#
+# Catharsis has no comparison operator, no swap, no index and no loop. What it
+# has is status, and status is already a total order the runtime computes for
+# its own reasons.
+#
+# Rank is how many people you have made feel small.
+#
+# ==============================================================================
+# THE TWO LINES OF RUNTIME THIS STANDS ON
+#
+# Neither was put there for sorting. Both are load-bearing.
+#
+# 1. `_needs` in `world.py` manufactures envy in whoever is short of a resource,
+#    directed at whoever holds more of it:
+#
+#        mine = agent.resources.get(resource, 0.0)
+#        for other in agent.bonds:
+#            theirs = self.agents[other].resources.get(resource, 0.0)
+#            if theirs > mine:                      # <- this is `>`
+#                self._add(deltas, agent.name, other, "envy", 0.07 * deficit)
+#
+#    That is integer comparison, phrased as *you envy people who have more than
+#    you*, and it runs for every pair every tick. The comparison is a field
+#    operation, not an action, so it is not serialised behind one-action-per-tick.
+#
+# 2. `SPILL` contains `envy -> shame 0.02`, and `_spill` sums over *every*
+#    outgoing bond into a single delta key, which `_add` accumulates and
+#    `_apply_deltas` applies as one saturating `Bond.add`. So the sum is exact
+#    and perfectly linear -- there is no accumulated saturation error, because
+#    there is only ever one deposit.
+#
+# Put together: after one tick each agent has an envy edge to everyone above it,
+# and after a second tick the count of those edges has been summed into its
+# self-shame.
+#
+#     shame(i)  =  0.02 * 0.07 * deficit(i) * |{ j : v_j > v_i }|
+#
+# Both factors are non-negative and strictly decreasing in v_i, so their product
+# is too. Descending self-shame is ascending value. Exactly.
+#
+# ==============================================================================
+# WHAT IT COSTS
+#
+#     depth      2 ticks, regardless of n           -- the comparisons are parallel
+#     work       O(n^2)                             -- one tick touches every edge
+#     actions    zero                               -- nothing is taken, nothing moves
+#
+# O(1) depth with n^2 processors is enumeration sort (Muller & Preparata, 1975).
+# Catharsis happens to have exactly n^2 processors, because it has exactly n^2
+# edges. The quadratic does not disappear -- it moves off the time axis and onto
+# the space axis, which is why the acquaintance block below is the longest part
+# of this file. In a language where the graph *is* the memory, an all-pairs
+# comparison is paid for in relationships rather than in time.
+#
+# Beating O(n^2) work needs a sparse comparison network, which needs values
+# routed between fixed positions between rounds -- and routing is exactly what
+# `examples/machine.feel` shows this language cannot do, because every transfer
+# leaves a back-edge of grievance.
+#
+# ==============================================================================
+# THE THREE PRECONDITIONS, AND WHAT HAPPENS IF YOU BREAK THEM
+#
+# `risk worth 0.9`   Above `TAKEABLE_RISK`, so `_contested_resource` skips it and
+#                    `compete` cannot fire. `_needs` does not consult `risk`, so
+#                    the envy still forms. This is envy at what cannot be taken,
+#                    and it is what keeps the sort from eating its own input.
+#                    Without it, agents steal from each other on tick 1 and the
+#                    values being sorted are destroyed.
+#
+# `need ... 1000000` Must exceed every value. `_needs` skips any agent whose
+#                    deficit is <= 0, so an agent holding more than it needs
+#                    never envies anyone, lands on shame 0, and ties with the
+#                    true maximum. Sorting [5, 50, 500] with `need 100` returns
+#                    [5, 500, 50].
+#
+# `tick 2`           One tick to compare, one to count. Fewer does not finish;
+#                    more is not more accurate. The order survives to about tick
+#                    18 and then breaks, because `_needs` also deposits sadness
+#                    every tick, and around tick 19 that is enough for `withdraw`
+#                    to clear the action threshold. After that the agents are
+#                    reacting to how the comparison made them feel, which is a
+#                    different computation. The answer has a window.
+#
+# Measured limits: exact for ties, duplicates, negatives and already-sorted
+# input; n up to about 760, where 0.001316 * corank reaches the clamp at 1.0 and
+# adjacent ranks stop being distinguishable. `tests/test_sort.py` checks all of it.
+#
+# ==============================================================================
+# READING THE ANSWER
+#
+# The sequence below is [23, 5, 91, 42, 5, 68, 17, 34]. After `tick 2`:
+#
+#     n5   shame 0.007896   envy out-degree 6   worth  5
+#     n2   shame 0.007896   envy out-degree 6   worth  5
+#     n7   shame 0.006580   envy out-degree 5   worth 17
+#     n1   shame 0.005264   envy out-degree 4   worth 23
+#     n8   shame 0.003948   envy out-degree 3   worth 34
+#     n4   shame 0.002632   envy out-degree 2   worth 42
+#     n6   shame 0.001316   envy out-degree 1   worth 68
+#     n3   shame 0.000000   envy out-degree 0   worth 91
+#
+# Descending shame is ascending worth: [5, 5, 17, 23, 34, 42, 68, 91]. The two
+# fives are bit-identical -- equal values cannot envy each other, so they deposit
+# nothing on each other and land on the same number. Ties survive as ties rather
+# than being broken arbitrarily.
+#
+# Every gap is exactly 0.001316, which is `0.02 * 0.07 * (1 - DECAY["envy"])`:
+# the spill rate, times the envy rate, times one tick of decay before the spill
+# reads it. Nothing is approximate here.
+#
+# Two readouts, and they are the same fact:
+#
+#   The ENVY FAN-OUT is the comparison matrix. `observe` prints it -- run this
+#   file and n3, holding 91, has a dash on every edge because it envies nobody,
+#   while n2 and n5, holding 5, envy six people each. The out-degree is the rank.
+#
+#   The SHAME is that matrix's row sum, computed by `_spill` rather than by the
+#   reader. It is what makes the rank a number the program holds. It does not
+#   appear in `observe` because `dominant()` in `field.py` has a 0.05 floor and
+#   prints two decimals, and the whole signal is smaller than that -- so use
+#   `catharsis run examples/sort.feel --json` to see it. The report is built for
+#   feelings a person would notice, and this one is deliberately faint.
+#
+# ==============================================================================
+# THE PROGRAM
+
+agent n1 n2 n3 n4 n5 n6 n7 n8
+
+# Envy is allowed; theft is not.
+risk worth 0.9
+
+have n1 worth 23
+have n2 worth 5
+have n3 worth 91
+have n4 worth 42
+have n5 worth 5
+have n6 worth 68
+have n7 worth 17
+have n8 worth 34
+
+# An appetite larger than anything in the sequence, so everybody is short of
+# it and therefore capable of envy.
+need n1 worth 1000000
+need n2 worth 1000000
+need n3 worth 1000000
+need n4 worth 1000000
+need n5 worth 1000000
+need n6 worth 1000000
+need n7 worth 1000000
+need n8 worth 1000000
+
+# Everyone must know everyone: `_needs` only envies `for other in agent.bonds`,
+# so an acquaintance that does not exist is a comparison that never happens.
+# This block is the O(n^2), and it is the whole of it.
+
+curiosity n1 n2 0.01
+curiosity n1 n3 0.01
+curiosity n1 n4 0.01
+curiosity n1 n5 0.01
+curiosity n1 n6 0.01
+curiosity n1 n7 0.01
+curiosity n1 n8 0.01
+
+curiosity n2 n1 0.01
+curiosity n2 n3 0.01
+curiosity n2 n4 0.01
+curiosity n2 n5 0.01
+curiosity n2 n6 0.01
+curiosity n2 n7 0.01
+curiosity n2 n8 0.01
+
+curiosity n3 n1 0.01
+curiosity n3 n2 0.01
+curiosity n3 n4 0.01
+curiosity n3 n5 0.01
+curiosity n3 n6 0.01
+curiosity n3 n7 0.01
+curiosity n3 n8 0.01
+
+curiosity n4 n1 0.01
+curiosity n4 n2 0.01
+curiosity n4 n3 0.01
+curiosity n4 n5 0.01
+curiosity n4 n6 0.01
+curiosity n4 n7 0.01
+curiosity n4 n8 0.01
+
+curiosity n5 n1 0.01
+curiosity n5 n2 0.01
+curiosity n5 n3 0.01
+curiosity n5 n4 0.01
+curiosity n5 n6 0.01
+curiosity n5 n7 0.01
+curiosity n5 n8 0.01
+
+curiosity n6 n1 0.01
+curiosity n6 n2 0.01
+curiosity n6 n3 0.01
+curiosity n6 n4 0.01
+curiosity n6 n5 0.01
+curiosity n6 n7 0.01
+curiosity n6 n8 0.01
+
+curiosity n7 n1 0.01
+curiosity n7 n2 0.01
+curiosity n7 n3 0.01
+curiosity n7 n4 0.01
+curiosity n7 n5 0.01
+curiosity n7 n6 0.01
+curiosity n7 n8 0.01
+
+curiosity n8 n1 0.01
+curiosity n8 n2 0.01
+curiosity n8 n3 0.01
+curiosity n8 n4 0.01
+curiosity n8 n5 0.01
+curiosity n8 n6 0.01
+curiosity n8 n7 0.01
+
+# One tick to compare, one to count.
+tick 2
+
+observe

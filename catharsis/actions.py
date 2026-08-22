@@ -21,8 +21,13 @@ Affinity keys are read as:
     the actor's charge toward itself
 ``their:fear``
     the *target's* charge toward the actor -- how the world answers back
-``deficit`` / ``their_need``
-    the actor's own unmet needs, and the target's
+``deficit`` / ``own_need`` / ``their_need``
+    unmet need: the actor's overall, the actor's in the specific resource being
+    handed over, and the target's -- the last discounted by how dangerous the
+    thing being asked for is
+``exposure``
+    what handing that resource over would cost if the asker is not what they
+    seem, weighed against how far they are actually trusted
 ``group_trust`` / ``group_doubt``
     mean feeling toward the actor's fellow members
 """
@@ -99,7 +104,13 @@ ACTIONS: tuple[Action, ...] = (
             "their_need": 0.60,
             "self:joy": 0.30,
         },
-        inhibit={"self:fear": 0.40, "resentment": 0.60, "envy": 0.30, "deficit": 0.70},
+        inhibit={
+            "self:fear": 0.40,
+            "resentment": 0.60,
+            "envy": 0.30,
+            "own_need": 0.70,
+            "exposure": 1.60,
+        },
         requires="can_give",
     ),
     Action(

@@ -10,3 +10,7 @@ venv/
 .coverage
 htmlcov/
 .DS_Store
+
+# generated replay pages
+*.html
+!docs/*.html

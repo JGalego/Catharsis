@@ -285,11 +285,25 @@ def _base_table() -> dict[str, Utterance]:
         effect="need",
     )
 
+    table["risk"] = Utterance(
+        name="risk",
+        params=("word", "number"),
+        doc="how exposed handing this resource over leaves the giver; risky things are given on trust, not on need",
+        effect="risk",
+    )
+
     table["trait"] = Utterance(
         name="trait",
         params=("agent", "word", "number"),
         doc="a temperament: the self-loop is pulled back toward this value forever",
         effect="trait",
+    )
+
+    table["agent"] = Utterance(
+        name="agent",
+        params=("word+",),
+        doc="brings entities into existence; takes as many names as you like",
+        effect="agent",
     )
 
     table["group"] = Utterance(
@@ -311,6 +325,13 @@ def _base_table() -> dict[str, Utterance]:
         params=("number?",),
         doc="let the field run",
         effect="tick",
+    )
+
+    table["settle"] = Utterance(
+        name="settle",
+        params=("number?",),
+        doc="tick until nobody acts — the only unbounded loop in the language, and what makes it Turing-complete",
+        effect="settle",
     )
 
     table["observe"] = Utterance(
@@ -409,8 +430,10 @@ EVENT_GLYPHS: dict[str, str] = {
 #: Every glyph the language answers to, mapped to what it means.
 ALL_GLYPHS: dict[str, str] = {**GLYPHS, **EVENT_GLYPHS}
 
-#: ``alice = 👤`` is the same declaration as ``alice = agent``.
+#: ``👤 alice bob carol`` and ``alice = 👤`` both declare.
 AGENT_GLYPH = "👤"
+EVENT_GLYPHS["agent"] = AGENT_GLYPH
+ALL_GLYPHS["agent"] = AGENT_GLYPH
 
 ALIASES.update({glyph: name for name, glyph in ALL_GLYPHS.items()})
 

@@ -14,10 +14,7 @@
 #
 #     catharsis run examples/society.catharsis --trace
 
-alice = agent
-bob = agent
-charlie = agent
-diana = agent
+agent alice bob charlie diana
 
 # Scarcity. Charlie and Diana are short of what Alice and Bob are sitting on,
 # which is enough to produce envy without anybody being told to be envious.

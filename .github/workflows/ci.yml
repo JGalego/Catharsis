@@ -24,7 +24,42 @@ jobs:
           for program in examples/*.feel; do
             echo "== $program"
             python -m catharsis run "$program" --quiet
+            python -m catharsis visualize "$program" -o /tmp/out.html
           done
+      - name: Analyse the field
+        run: |
+          python -m catharsis spectrum
+          python -m catharsis spectrum examples/romeo.feel --edge romeo juliet -o /tmp/phase.html
+          python - <<'PY'
+          import json, pathlib, re
+
+          page = pathlib.Path("/tmp/phase.html").read_text()
+          blob = re.search(r'<script type="application/json" id="payload">(.*?)</script>', page, re.S)
+          assert blob, "the phase page has no payload"
+          payload = json.loads(blob.group(1))
+          assert payload["slices"], "the phase page has no slices"
+          assert payload["bifurcation"], "the phase page has no bifurcation"
+          PY
+
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install coverage
+      - name: Measure coverage
+        # fail_under = 100 lives in pyproject.toml, so this step is the gate.
+        run: |
+          python -m coverage run -m unittest discover -s tests
+          python -m coverage report
+          python -m coverage xml
+      - uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage.xml
+          fail_ci_if_error: true
 
   lint:
     runs-on: ubuntu-latest

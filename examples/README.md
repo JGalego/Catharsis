@@ -9,7 +9,12 @@ catharsis run examples/<name>.feel            # final state
 catharsis run examples/<name>.feel --trace    # narrate every event as it happens
 catharsis run examples/<name>.feel --json     # machine-readable state
 catharsis run examples/<name>.feel --emoji    # one glyph per emotion
+catharsis visualize examples/<name>.feel      # replay it in a browser, frame by frame
 ```
+
+Every example below is worth watching rather than reading: `visualize` gives you the whole
+run with transport controls, so the propagation in §2 and the coordination cascade in §6
+are visible as they happen instead of only in the final numbers.
 
 ---
 
@@ -299,9 +304,7 @@ out whichever side loses as grief.
 A love triangle, written entirely in glyphs.
 
 ```
-alice = 👤
-bob   = 👤
-carol = 👤
+👤 alice bob carol
 
 ❤️ alice bob 0.9
 ❤️ bob alice 0.7
@@ -341,3 +344,239 @@ she has more pressure to approach Bob than anyone else does, and over twelve tic
 wedges herself into the couple — ending with real warmth toward Bob (❤️ 0.78) and a
 hardening rivalry with Alice (💚 0.26 with 😠 and 😨 behind it) that she was never
 instructed to develop. Note that Bob now has a bond back to Carol and Alice does not.
+
+---
+
+## 10. Supply-chain capture — [`supply_chain.feel`](supply_chain.feel)
+
+**Grounded in a real case.** The XZ Utils backdoor (CVE-2024-3094), on its documented
+timeline: a first legitimate patch on 2021-10-29, 2.6 years of contributions that were
+nearly all genuine improvements, a maintainer who said publicly that his "ability to care
+has been fairly limited mostly due to longterm mental health issues", two accounts that
+appeared only to complain about the pace and then vanished, commit access on 2022-10-28,
+and a backdoored release on 2024-02-24. One tick is one month. Nobody is named: the
+maintainer is a real person, and his exhaustion is a matter of public record but not a
+matter of arithmetic.
+
+Nothing in the program schedules the handover. Commit access is a resource carrying
+`risk 0.9`, and the runtime's own `give` grants it when accumulated trust outweighs the
+exposure:
+
+```
+[tick  6] maintainer gave newcomer commit_access     <- the real grant was month 12
+[tick 26] newcomer betrayed maintainer
+[tick 27] distro told maintainer "newcomer betrayed maintainer"
+```
+
+At the moment of the grant:
+
+```
+maintainer
+    -> newcomer: gratitude 0.87  trust 0.78  love 0.61  resentment 0.28  doubt 0.23
+       [trust ceiling 0.84]   [holding: love/resentment 0.28, gratitude/resentment 0.25,
+                                        trust/doubt 0.23]
+```
+
+**Why this needs an emotional model.** The attack exploited no vulnerability. A dependency
+scanner would have called the project healthy for the entire 2.6 years, because the attack
+surface was the relationship, and it ran *through* gratitude — every patch was real, and
+every one was a reason a sane person would trust the sender a little more.
+
+Look at the state at the moment of the grant. The maintainer is handing commit access to
+somebody he is grateful to (0.87), trusts (0.78) and is *also* uneasy about (doubt 0.23,
+resentment 0.28) — the runtime records all of it, and the three `holding:` pairs say the
+decision was made under unresolved ambivalence rather than under confidence. A net trust
+score of "0.55" would have erased the only interesting thing in that line.
+
+**Where it is wrong.** The model grants at month 6; the real grant was month 12. It gets
+the mechanism and the ordering right and runs about twice as fast. That gap is left in.
+One date is not something to fit constants to, and a model adjusted until it printed 12
+would be telling you only that it had been adjusted.
+
+---
+
+## 11. The commons — [`commons.feel`](commons.feel)
+
+**Grounded in real cases.** The collapse side is the Grand Banks northern cod: catches
+peaked above 800,000 tonnes in 1968, spawning biomass fell ~93% from 1.6 million tonnes in
+1962 to 72,000–110,000 by 1992, and the moratorium of 2 July 1992 put around 30,000 people
+out of work and lasted 32 years. The other side is the case standard models do not predict:
+Ostrom's commons work and Acheson's ethnography of Maine's lobster harbour gangs, whose
+graduated sanction ladder — a word, then interference with gear, then destruction of it,
+then exclusion — is not a written policy but escalation driven by accumulated grievance.
+
+The same four fishers, the same stock, the same needs, run twice. The only difference is
+whether they know each other:
+
+```
+neighbours   thefts  0   gifts 6   rotation 6.26/6.00 ACHIEVED
+strangers    thefts  5   gifts 4   rotation 0.00/6.00
+```
+
+**Why this needs an emotional model.** Ostrom, Walker and Gardner's laboratory experiments
+found that letting subjects talk raises cooperation, that talk plus sanctioning raises it
+further, and — the part a payoff matrix cannot express — that *the effect persists after
+the talking stops*. That is a claim about memory, not incentives, and it is the claim this
+language makes natively. `TestCommons` in `tests/test_semantics.py` turns it into four
+assertions, including that the neighbours' advantage outlives the opening deposits that
+created it, sustained by the memory of having been given something.
+
+**What it does not do**, and the test says so explicitly: the same fish exist in both runs.
+The emotional layer changes whether the shortfall is shared or taken, and whether the
+collective task gets done. It does not create fish.
+
+---
+
+## 12. A negative result, kept — [`romeo.feel`](romeo.feel)
+
+Steven Strogatz's "Love affairs and differential equations" (*Mathematics Magazine* 61(1):35,
+1988) models Romeo's feeling `R` and Juliet's `J` as `dR/dt = aR + bJ`, `dJ/dt = cR + dJ`,
+and reads four qualitative regimes off the eigenvalues. This file applies his *method* to
+Catharsis's state space rather than porting his model — his axis is signed, and `R < 0` being
+hatred is exactly the collapse this language exists to refuse.
+
+Five setups, one per pair, all run 30 ticks. Final love, each direction:
+
+```
+1  eager on both sides                  0.81 / 0.80
+2  romeo eager, juliet timid            0.81 / 0.80   <- identical to 1
+3  both cautious                        0.81 / 0.80   <- identical to 1
+4  romeo alone, unrequited              0.72 / 0.59   <- she loves him back
+5  juliet resents him                   0.56 / 0.00
+```
+
+**Rows 1–3 are not close, they are bit-identical on all twenty axes.** The `fear` temperament
+changes self-regard — romeo's self-fear ends at 0.24 in row 3 and 0.00 in row 1 — and changes
+the bond by exactly nothing. That is structural: `_spill` in `world.py` moves outward feeling
+onto self-regard and nothing in the field layer goes the other way, so a temperament can
+reach an outward bond only by changing which *action* fires, and here none of them fire
+differently. Strogatz's cautiousness parameter has no analogue in Catharsis's bond dynamics,
+which is why his cautious regime cannot appear.
+
+Row 4 is a plainer failure: unrequited love should stay one-sided, and Juliet — given no
+feeling whatsoever in the program — ends up loving him at 0.59. Nothing in the model lets a
+person simply not be interested.
+
+**One regime is impossible rather than merely absent.** Strogatz's fourth case is the
+oscillating cycle — two people chasing and fleeing for ever. **No two-axis slice of this
+field has a complex eigenvalue at all**: every one of the 190 pairs comes out with real
+eigenvalues, so every slice is a node or a saddle and none is a centre. There is nowhere
+in the field for a cycle to live, and `TestNothingOscillates` checks every pair.
+
+So of Strogatz's four regimes: one appears, one is blocked by an accident of where
+temperaments live, one is swallowed by the warm loop, and one is ruled out by construction.
+
+**Why the example is kept.** It was not found by running the file. `catharsis spectrum`
+predicts it: love/trust is the one slice of the field that RUNS AWAY, at 1.0200 per tick,
+with every other pair settling to indifference. Attachment is not an outcome here, it is a
+fixed point that almost every start falls into. The spectrum is the prediction; the example
+is the confirmation; and `TestStrogatz` in `tests/test_analysis.py` asserts the limitation so
+that if the runtime ever gains the missing coupling, the test fails and the file is due a
+rewrite rather than a footnote.
+
+---
+
+## 13. How far it gets toward a counter machine — [`machine.feel`](machine.feel)
+
+`settle` ticks until nobody acts, with no bound required, which makes it the only statement
+whose length is decided by the data. That is enough to remove the one-line disproof of
+Turing-completeness — "every Catharsis program halts" — and enough for an exact register:
+
+```
+N        units moved   last move at tick
+ 3            3                3
+11           11               16
+25           25               53
+60           60              114
+```
+
+The count is exact and the duration is a function of `N` that appears nowhere in the control
+flow, and it is not even linear in `N` because the giver habituates. Nothing in the program
+counts anything.
+
+The `settle 400` in the file really does run 400 ticks. The register drains by tick 16 and
+then the two of them go on reaching out forever — because that is what `spectrum` says the
+love/trust slice does. **The warmth that powers the loop is the same thing that stops the
+field ever going quiet.** Remove the bound and the program does not terminate, which is the
+property being demonstrated.
+
+The rest of the file is about where it stops, and the two obstructions turn out to be the
+same fact: `compete` always deposits anger in the victim pointing back at the taker, so
+control transfer in Catharsis is natively bidirectional. Two agents and one baton give an
+exact flip-flop — a program counter built out of a grudge — and a ring of three collapses.
+See the README's ["Is it Turing-complete?"](../README.md#is-it-turing-complete) section for
+the full account and the one primitive that would close it. Every claim in it is a check in
+`TestCounterMachine` in `tests/test_semantics.py`, each in a world of its own: an agent with
+an unsatisfiable appetite competes with anyone holding anything, so these casts must not
+share a stage.
+
+---
+
+## 14. Sorting integers out of envy — [`sort.feel`](sort.feel)
+
+**Rank is how many people you have made feel small.**
+
+Catharsis has no comparison operator, no swap, no index and no loop. It does have status,
+and status is a total order the runtime already computes for its own reasons. Two lines of
+runtime do the whole job, and neither was put there for sorting:
+
+```python
+# world.py, _needs -- runs for every pair, every tick
+if theirs > mine:                                             # <- this is `>`
+    self._add(deltas, agent.name, other, "envy", 0.07 * deficit)
+
+# field.py, SPILL -- and _spill sums EVERY outgoing bond into one delta key
+("envy", "shame", 0.02)
+```
+
+Tick 1 puts an envy edge from each agent to everyone above it. Tick 2 sums those edges into
+self-shame. Because `_add` accumulates into a dict before `_apply_deltas` calls
+`Bond.add` once, the sum is a single saturating deposit and is therefore exactly linear —
+there is no accumulated saturation error at all.
+
+```
+n5   shame 0.007896   envy out-degree 6   worth  5
+n2   shame 0.007896   envy out-degree 6   worth  5
+n7   shame 0.006580   envy out-degree 5   worth 17
+n1   shame 0.005264   envy out-degree 4   worth 23
+n8   shame 0.003948   envy out-degree 3   worth 34
+n4   shame 0.002632   envy out-degree 2   worth 42
+n6   shame 0.001316   envy out-degree 1   worth 68
+n3   shame 0.000000   envy out-degree 0   worth 91
+```
+
+Every gap is exactly `0.02 × 0.07 × (1 − DECAY["envy"])` = 0.001316. The two fives are
+bit-identical: equal values cannot envy each other, so ties survive as ties rather than
+being broken arbitrarily.
+
+| | |
+| --- | --- |
+| Depth | **2 ticks, regardless of n** — the comparisons are field operations, not actions, so they are not serialised behind one-action-per-tick |
+| Work | O(n²) — one tick touches every edge |
+| Actions | **zero** — nothing is taken, nothing moves, the input is never touched |
+
+O(1) depth with n² processors is enumeration sort (Muller & Preparata, 1975), and Catharsis
+happens to have exactly n² processors because it has exactly n² edges. The quadratic does
+not disappear; it moves off the time axis and onto the space axis, which is why the
+acquaintance block is the longest part of the file. **In a language where the graph is the
+memory, an all-pairs comparison is paid for in relationships rather than in time.**
+
+Beating O(n²) work needs a sparse comparison network, which needs values routed between
+fixed positions between rounds — and routing is exactly what
+[machine.feel](machine.feel) shows this language cannot do, because every transfer leaves a
+back-edge of grievance. The same missing distinction blocks both results.
+
+**Three preconditions, each broken in turn by a test.** `risk worth 0.9` puts the value
+above `TAKEABLE_RISK` so `compete` cannot fire, while `_needs` — which does not consult
+`risk` — still forms the envy. That is *envy at what cannot be taken*, and without it the
+agents eat their own input on tick 1. The `need` must exceed every value, or an agent with
+no deficit is skipped by `_needs` entirely and ties with the true maximum: sorting
+`[5, 50, 500]` with `need 100` returns `[5, 500, 50]`. And `tick 2` is one tick to compare
+and one to count — fewer does not finish, and more is not more accurate. The order survives
+to about tick 18 and then breaks, because `_needs` also deposits sadness every tick and
+eventually `withdraw` clears the action threshold. **The answer has a window**, after which
+the agents are reacting to how the comparison made them feel.
+
+The sort is exact up to about n = 760, where `0.001316 × corank` reaches the clamp at 1.0
+and adjacent ranks stop being distinguishable. `tests/test_sort.py` checks all of it,
+including ties, duplicates, negatives, and the shipped example's exact output.
